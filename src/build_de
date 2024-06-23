@@ -1,0 +1,77 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+bd_app_deb_callback() {
+    local source_nm="$1"
+    local dst_path="${OBJ_DE_PATH}/${source_nm}/"
+    entry_dir "${dst_path}/" && {
+        # 1. prepare install compile dependencies
+        install_dependency
+        [ $? -ne 0 ] && {
+            log_err "install_dependency failed."
+            rollback_dir
+            return 1
+        }
+        # 2. build the registered app
+        local bd_cpus=
+        if [ ! -z $MC_CPU_NUMBERS_OPTION ] && [ $MC_CPU_NUMBERS_OPTION -le $MC_CPU_NUMBERS_MAX ]; then
+            bd_cpus=$MC_CPU_NUMBERS_OPTION
+        elif [ -z $MC_CPU_NUMBERS_OPTION ]; then
+            # the default minimum is two cores
+            bd_cpus=2
+        else
+            bd_cpus=$MC_CPU_NUMBERS_MAX
+        fi
+        build_package_source $bd_cpus
+        [ $? -ne 0 ] && {
+            log_err "build_package_source failed."
+            rollback_dir
+            return 1
+        }
+        rollback_dir
+    }
+    return 0
+}
+
+bd_app_post_process_callback() {
+    local source_nm="$1"
+    local dst_path="${OBJ_DE_PATH}/"
+    local tmp_debs_path="${DEBS_PATH}"
+    local tmp_dbgsym_debs_path="${DBGSYM_DEBS_PATH}"
+    entry_dir "${dst_path}/" && {
+        # local deb_dbgsym_list=$(find "${dst_path}" -maxdepth 1 -type f -name "*$source_nm*dbgsym*.deb")
+        local deb_dbgsym_list=$(find . -maxdepth 1 -type f -name "*$source_nm*dbgsym*.deb")
+        for dbfile in $deb_dbgsym_list; do
+            [ -f "${tmp_dbgsym_debs_path}/${dbfile}" ] &&
+                rm -f "${tmp_dbgsym_debs_path}/${dbfile}"
+            mv -f "${dst_path}/${dbfile}" "${tmp_dbgsym_debs_path}"
+        done
+        # local deb_list=$(find "${dst_path}" -maxdepth 1 -type f -name "*$source_nm*.deb")
+        local deb_list=$(find . -maxdepth 1 -type f -name "*$source_nm*.deb")
+        # TODO: place the compile-generated package into the specified output/packages folder
+        local output_packages_path="${OUTPUT_PACKAGES_PATH}"
+        for dbfile in $deb_list; do
+            [ -f "${output_packages_path}/${dbfile}" ] &&
+                rm -f "${output_packages_path}/${dbfile}"
+            cp -f "${dst_path}/${dbfile}" "${output_packages_path}"
+        done
+
+        for dbfile in $deb_list; do
+            [ -f "${tmp_debs_path}/${dbfile}" ] &&
+                rm -f "${tmp_debs_path}/${dbfile}"
+            mv -f "${dst_path}/${dbfile}" "${tmp_debs_path}"
+        done
+        rollback_dir
+    }
+    return 0
+}
+
+build_de_a() {
+    local app=$1
+    # build all app or the specified app
+    local app_list="${ASRFOS_BASE_APP_LIST[*]}"
+    log_info "build asrfos desktop app source."
+    run_call_acc_app_listording_app_list "$app_list" bd_app_deb_callback $app
+    # place the compile-generated package into the specified .tmp/debs folder
+    run_call_acc_app_listording_app_list "$app_list" bd_app_post_process_callback $app
+}

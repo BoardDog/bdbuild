@@ -1,0 +1,33 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+clear_env() {
+    return 0
+}
+
+# function <clean>
+# @$1: cmd
+clean() {
+    local ret=
+    local cmd=$1
+    local app_nm=$(echo $cmd | awk -F "-" '{print $2}')
+    if [ -z $app_nm ]; then
+        # then clean all tmp and output files
+        ret=$(rm -rf $TEMP_PATH $OUTPUT_PATH)
+    else
+        # only the directory files of the specified app are clean
+        case $app_name in
+        debs) ret=$(rm -rf $DEBS_PATH) ;;
+        output) ret=$(rm -rf $OUTPUT_PATH) ;;
+        *)
+            if [ ! -d "$OBJ_DE_PATH/$app_nm" ]; then
+                log_warn "no path in $OBJ_DE_PATH/$app_nm, please check."
+                ret=1
+            else
+                ret=$(rm -rf $OBJ_DE_PATH/$app_nm)
+            fi
+            ;;
+        esac
+    fi
+    return $ret
+}

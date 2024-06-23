@@ -1,0 +1,25 @@
+#!/bin/bash
+
+dl_git_repo() {
+    local OPTIONS=$1
+    local REPO_URL=$2
+    local BRANCH=$3
+    local DEST_DIR=$4
+    if [ ! -d "$DEST_DIR"/.git ]; then
+        # clone repository
+        git clone $OPTIONS -b $BRANCH $REPO_URL "$DEST_DIR"
+        [ $? != 0 ] && {
+            log_err "clone ${REPO_URL} failed."
+            return -1
+        }
+        debug "dl done."
+        return 0
+    fi
+    # TODO: there are still some inadequacies in checking repository integrity
+    if git fsck --full >>/dev/null; then
+        log_err "repository integrity error."
+        return -1
+    fi
+    log_info "already in existence. ${REPO_URL}."
+    return 0
+}

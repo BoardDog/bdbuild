@@ -1,0 +1,45 @@
+#!/bin/bash
+
+dl_bi_source_by_git_callback() {
+    local rp_nm="$1"
+    local dst_path="${CODE_PATH}/${rp_nm}/"
+    local options="${GIT_CLONE_OPTIONS}"
+    local branch="${_G_RP_BH_LIST[$rp_nm]}"
+    local url="https://${_G_GIT_REPOSITORY_DOMAIN}/${_G_ORGANIZATION}/${rp_nm}.git"
+    [ -d "${dst_path}" ] || {
+        mkdir -p "${dst_path}" && {
+            log_info "download $rp_nm source code from git repository, url: '$url', branch: '$branch'."
+            dl_git_repo "${options}" "${url}" "${branch}" "${dst_path}"
+            return $?
+        }
+    }
+}
+
+build_image_a() {
+    # @1. download source
+    log_info "download image base source..."
+    local cmd_nm=$1
+    if [ -z $cmd_nm ]; then
+        log_err "$cmd_nm is none"
+        return 1
+    fi
+    local cmd_list="${_G_CMD_LIST[*]}"
+    _is_in_list "${cmd_list[*]}" $cmd_nm || {
+        log_err "$cmd_nm not in cmd list"
+        return 1
+    }
+    local rp_list=${_G_CMD_DEP_LIST[$cmd_nm]};
+    run_call_acc_app_listording_app_list "${rp_list[*]}" dl_bi_source_by_git_callback || {
+        log_err "unable to download code"
+        return 1
+    }
+    # @2. cmd process
+    log_info "__build_$cmd_nm process..."
+    if [ "$(type -t __build_$cmd_nm)" = "function" ]; then
+        __build_$cmd_nm || {
+            log_err "__build_$cmd_nm failed"
+            return 1
+        }
+    fi
+    return 0
+}

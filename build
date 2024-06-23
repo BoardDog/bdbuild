@@ -1,0 +1,128 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+set -e -o pipefail
+
+# TODO: exit when the source command is detected
+
+# function usage
+usage() {
+    echo -n "\
+Usage: $BASH_SOURCE [OPTION]... [PARAM=VAL]...
+
+    -f/config       config file
+    -h/help
+    -c/command      specify a custom commandd
+        clear/cr    clears temporary variables about the project in the current shell
+        clean/cn    clean all spanned file
+    -b/build        building the specified package
+    -s/image        building image
+    -j/jobs         specify the number of cpus to build when building the package
+
+Description: Board Build Tools.
+Author: Morty Zhao <morty.zhaoy@gmail.com>
+License: GPL-3.0-or-later
+"
+}
+
+_parse_param() {
+    local argcs=$@
+    export USER_CFG_FILE_OPTION=
+    export APP_OPTION=
+    export IMAGE_OPTION=
+    export MC_CPU_NUMBERS_OPTION=
+    while getopts ":hf:qc:b:j:s:" argcs; do
+        case "${argcs}" in
+        f) USER_CFG_FILE_OPTION="${OPTARG}" ;;
+        b) APP_OPTION="${OPTARG}" ;;
+        s) IMAGE_OPTION="${OPTARG}" ;;
+        j) MC_CPU_NUMBERS_OPTION="${OPTARG}" ;;
+        c) C_CMD_OPTION="${OPTARG}" ;;
+        q)
+            # clears temporary variables and Quit
+            exit 0
+            ;;
+        h)
+            usage
+            exit 0
+            ;;
+        *)
+            usage
+            exit 0
+            ;;
+        esac
+    done
+}
+
+# parsing shell parameters
+_parse_param $@
+
+source src/user_env $@ || {
+    echo -n "[error] user_env failed."
+    exit -1
+}
+
+source src/base_config || {
+    echo -n "[error] base_config failed."
+    exit -1
+}
+
+source src/log
+source src/libs/packages
+source src/git
+source src/common
+source src/project
+source src/build_de
+source src/build_rootfs
+source src/build_image
+source src/build_os
+
+# function main
+_main() {
+    # parsing commands
+    local ret=0
+    local cmd=$C_CMD_OPTION
+    case $cmd in
+    clear | cr)
+        clear_env
+        return $?
+        ;;
+    clean* | cn*)
+        log_info "clean all output middleware."
+        clean $cmd
+        return $?
+        ;;
+    *) ;;
+    esac
+    # pre process
+    start_time=$(date +%s)
+    log_info "start build..."
+    create_new_session || {
+        log_err "create_new_session failed."
+        return 1
+    }
+    prepare_packages || return 2
+    # core process
+    if [ ! -z $APP_OPTION ]; then
+        log_info "build app..."
+        build_de_a $APP_OPTION
+    elif [ ! -z $IMAGE_OPTION ]; then
+        log_info "build image..."
+        build_image_a $IMAGE_OPTION
+    else
+        log_info "build os..."
+        build_os_a $APP_OPTION $IMAGE_OPTION
+    fi
+    ret=$?
+    # post process
+    clean_old_session
+    log_info "\nbuild done, $(date)"
+    end_time=$(date +%s)
+
+    time_cal $(($end_time - $start_time))
+    return $ret
+}
+
+# start
+_main
+# end

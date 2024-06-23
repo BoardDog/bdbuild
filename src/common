@@ -1,0 +1,335 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# function <need_sudo>
+# #$1: other cmd
+need_sudo() {
+    if [ "$SUPERUSER_PERMISSION" ]; then
+        log_warn "[${FUNCNAME[1]}] requires superuser permission!"
+        return 0
+    fi
+    return 1
+}
+
+create_new_session() {
+    local session_file_list=
+    entry_dir "${TEMP_PATH}/" && {
+        session_file_list=$(find . -name "*.pid")
+        rollback_dir
+    }
+    if [ ${#session_file_list[*]} -gt 1 ]; then
+        log_err "there are multiple running processes, please check."
+        return 1
+    fi
+    OLD_SESSION_PID=$(pgrep -F "${session_file_list[0]}" 2>/dev/null || true)
+    if [ "$OLD_SESSION_PID" ]; then
+        log_err "old session detected: $OLD_SESSION_PID."
+        return 1
+    fi
+    [ ! -f $SESSION_PID_FILE ] &&
+        touch $SESSION_PID_FILE
+    echo $$ >$SESSION_PID_FILE && {
+        log_info "create new session $SESSION_PID_FILE [$$]."
+    }
+    return 0
+}
+
+check_session_is_busy() {
+    log_info "check busy session: $1"
+    local session_state=$(pgrep -F "$1" 2>/dev/null || true)
+    if [ $session_state ]; then
+        log_warn "session id: $1 is busy."
+        return 1
+    fi
+    return 0
+}
+
+clean_old_session() {
+    [ -f $SESSION_PID_FILE ] &&
+        rm -f $SESSION_PID_FILE
+    log_info "cleanup old session."
+}
+
+unset_vars() {
+    local t
+    for t in $@; do
+        unset $t
+        export $t
+    done
+}
+
+time_cal() {
+    local min m
+    min=$(($1 / 60))
+    sec=$(($1 - min * 60))
+    [ "$min" = 0 ] || m="$min min"
+    log_info "time elapsed: $m $sec sec"
+}
+
+# function <entry_path>
+# #$1: target path
+entry_dir() {
+    # change absolute path
+    if test ! -z $1 -a -d $(realpath $1); then
+        cd $1
+        return 0
+    fi
+    log_err "can't entry '$1' path."
+    return 1
+}
+
+rollback_dir() {
+    cd - >>/dev/null
+}
+
+move() {
+    mv $@
+}
+
+# function <_is_in_list>
+# @$1: app list
+# @$2: specify app
+_is_in_list() {
+    local _list=$1
+    local _target=$2
+    for it in ${_list[@]}; do
+        [ ! -z $_target ] && [ "$it" == "$_target" ] &&
+            return 0
+    done
+    return 1
+}
+
+# function <run_call_according_app_list>
+# @$1: app list
+# @$2: cmd callback function
+# @$3: specify app(may be omitted)
+run_call_acc_app_listording_app_list() {
+    local _app_list=$1
+    local _cmd_callback=$2
+    local _specify_app=$3
+    debug "$_specify_app"
+    [ ! -z $_specify_app ] && {
+        _is_in_list "${_app_list[*]}" $_specify_app || {
+            log_err "$_specify_app not in app list(${_app_list[*]})."
+            return 1
+        }
+    }
+
+    if [ -z $_specify_app ]; then
+        # all apps execute callbacks
+        for it in ${_app_list[@]}; do
+            $_cmd_callback $it || {
+                log_err "callback execution failure."
+                return 2
+            }
+        done
+    else
+        $_cmd_callback "$_specify_app" || {
+            log_err "callback execution failure."
+            return 2
+        }
+    fi
+    return 0
+}
+
+# function <extract_package>
+extract_package() {
+    local PACKAGE_NM=$1
+    local DST_PATH=$2
+    log_info "extracting $PACKAGE_NM to $DST_PATH..."
+    [ ! -d "$DST_PATH" ] && mkdir -p "$TARGET_PATH"
+    for pattern in .tar.gz .tar.xz .tar.bz2 .tgz .txz .tbz .7z .zip; do
+        if [[ $PACKAGE_NM =~ ${pattern//./\\.}$ ]]; then
+            f="$PACKAGE_NM"
+            if [ ! -f $f ]; then
+                log_err "File $PACKAGE_NM doesn't exist in package downloads directory"
+                return -1
+            fi
+            case $PACKAGE_NM in
+            *.tar)
+                tar xf $f -C $2
+                ;;
+            *.tar.bz2 | *.tbz)
+                tar xjf $f -C $2
+                ;;
+            *.tar.gz | *.tgz)
+                if which pigz 1>/dev/null 2>/dev/null; then
+                    pigz -dc <$f | tar -xf- -C$2
+                else
+                    tar xzf $f -C $2
+                fi
+                ;;
+            *.tar.xz | *.txz)
+                if which pixz 1>/dev/null 2>/dev/null; then
+                    pixz -dc <$f | tar -xf- -C$2
+                else
+                    tar xJf $f -C $2
+                fi
+                ;;
+            *.7z)
+                mkdir -p $2/$1
+                7z x -o$2/$1 $f
+                ;;
+            *.zip)
+                unzip -q $f -d $2
+                ;;
+            *.diff | *.patch)
+                cat $f | patch -d $2 -p1
+                ;;
+            *.diff.bz2 | *.patch.bz2 | patch-*.bz2)
+                bzcat $f | patch -d $2 -p1
+                ;;
+            *.diff.gz | *.patch.gz | patch-*.gz)
+                zcat $f | patch -d $2 -p1
+                ;;
+            *)
+                cp -pPR $f $2
+                ;;
+            esac
+            break
+        fi
+    done
+    return $?
+}
+
+unset_package_vars() {
+    unset PKG_NAME
+    unset PKG_VERSION
+    unset PKG_VERSION_SHORT
+    unset PKG_ASC
+    unset PKG_ARCH
+    unset PKG_LICENSE
+    unset PKG_URL
+    unset PKG_SOURCE_DIR
+    unset PKG_SOURCE_NAME
+    unset PKG_DESC
+}
+
+prepare_image_host_packages() {
+    unset_package_vars
+    mkdir -p $DOWNLOAD_PATH
+    cd $DOWNLOAD_PATH
+    if [ ! -d "$CONFIG_PACKAGES_PATH/" ]; then
+        log_err "$CONFIG_PACKAGES_PATH/ path is not exist"
+        return 1
+    fi
+    if [ -z "$__PG_CS_TC_NM_LIST" ]; then
+        log_err "__PG_CS_TC_NM_LIST is not exist"
+        return 1
+    fi
+    
+    for it in ${__PG_CS_TC_NM_LIST[@]}; do
+        if [ "$it" == "" ]; then
+            continue
+        fi
+        if [ ! -d "$CONFIG_PACKAGES_PATH/$it/" ]; then
+            log_err "$it is not exist, please check"
+            continue
+        fi
+        . $CONFIG_PACKAGES_PATH/$it/package.sp
+        if [ "$PKG_NAME" == "" ]; then
+            log_err "package name is none"
+            continue
+        fi
+        if [ -f "$DOWNLOAD_PATH/$PKG_SOURCE_NAME" ]; then
+            log_info "$PKG_SOURCE_NAME package is exist, continue..."
+            continue
+        fi
+        WGET_CMD="wget --timeout=30 --tries=3 --passive-ftp --no-check-certificate -O $PKG_SOURCE_NAME"
+        local REDL_COUNT=10
+        while [ $REDL_COUNT -gt 0 ]; do
+            if $WGET_CMD "$PKG_URL"; then
+                MD5SUM_VAL="$(md5sum $PKG_SOURCE_NAME | cut -d" " -f1)"
+                [ -z "${PKG_MD5}" -o "${PKG_MD5}" == "${MD5SUM_VAL}" ] && break
+                log_err "check val=${PKG_MD5}, download val=${MD5SUM_VAL}.check for calibration failures, please check"
+            fi
+            REDL_COUNT=$((REDL_COUNT - 1))
+        done
+        if [ $REDL_COUNT -eq 0 ]; then
+            log_err "package=$PKG_NAME,url=$PKG_URL. Cannot get the package file, please check"
+            return 2
+        fi
+        # record status
+        [ ! -f $DOWNLOAD_PATH/$PKG_SOURCE_NAME.url ] && echo "${PKG_URL}" >$PKG_SOURCE_NAME.url
+        [ ! -f $DOWNLOAD_PATH/$PKG_SOURCE_NAME.md5 ] && echo "${MD5SUM_VAL}" >$PKG_SOURCE_NAME.md5
+        # unzip file handling
+        local need_extract=1
+        [ -f "${DL_STATUS_FILE_PATH}"] && {
+            local ret=$(grep $PKG_SOURCE_NAME $DL_STATUS_FILE_PATH)
+            [ ! -z $ret ] && need_extract=0
+        }
+        [ $need_extract -eq 1 ] && {
+            local __pg_install_ret=$(echo `__package_install`)
+            log_info "extract to $__pg_install_ret"
+            extract_package "$DOWNLOAD_PATH/$PKG_SOURCE_NAME" $__pg_install_ret
+            [ $? == 0 ] && {
+                log_info "$PKG_SOURCE_NAME extract success"
+                if [ -f "${DL_STATUS_FILE_PATH}" ]; then
+                    local ret=$(grep $PKG_SOURCE_NAME $DL_STATUS_FILE_PATH)
+                    [ -z $ret ] && {
+                        echo "$PKG_SOURCE_NAME:ec_s=done">>$DL_STATUS_FILE_PATH
+                    }
+                else
+                    echo "$PKG_SOURCE_NAME:ec_s=done">$DL_STATUS_FILE_PATH
+                fi
+            }
+        }
+    done
+    return 0
+}
+
+prepare_os_host_packages() {
+    # OS prepare tools
+    local prepare_packages=
+    local host_env=$(sed -ne 's/^VERSION_CODENAME=//p' </etc/os-release)
+    case $host_env in
+    stretch | bullseye)
+        # debian host system environment
+        # prepare_packages+="devscripts build-essential"
+        # bug: sometimes an exception can occur, leading to a recognition error
+        prepare_packages+="devscripts build-essential equivs"
+        ;;
+    bionic | focal | jammy)
+        # ubuntu host system environment
+        prepare_packages+="devscripts build-essential equivs"
+        ;;
+    *)
+        log_err "unknown host environment."
+        return 1
+        ;;
+    esac
+
+    local need_install_packages=()
+    local host_packages_list=$(dpkg-query -W -f '${db:Status-Abbrev}|${binary:Package}\n' '*' 2>/dev/null | grep '^ii' | awk -F '|' '{print $2}' | cut -d ':' -f 1)
+
+    for packet in $prepare_packages; do
+        if ! grep -q -x -e "$packet" <<<"$host_packages_list"; then
+            need_install_packages+=("$packet")
+        fi
+    done
+
+    if [[ ${#need_install_packages[@]} -gt 0 ]]; then
+        need_sudo || {
+            return 1
+        }
+        log_info "obtain host dependency software packages."
+        $SUPERUSER_PERMISSION apt-get update
+        $SUPERUSER_PERMISSION apt-get -y --no-install-recommends install "${need_install_packages[@]}"
+        $SUPERUSER_PERMISSION update-ccache-symlinks
+    else
+        log_info "the host dependency software package has been installed."
+    fi
+    return 0
+}
+
+prepare_packages() {
+    prepare_os_host_packages || {
+        log_err "prepare_os_host_packages failed."
+        return 1
+    }
+    prepare_image_host_packages || {
+        log_err "prepare_os_host_packages failed."
+        return 2
+    }
+    return 0
+}

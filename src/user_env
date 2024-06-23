@@ -1,0 +1,119 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Color
+# https://no-color.org/
+RED="\e[0;31m"
+GREEN="\e[0;32m"
+YELLOW="\e[0;33m"
+BLUE="\e[0;34m"
+WHITE="\e[0;37m"
+ENDCOLOR="\e[0m"
+NO_COLOR='\033[0m'
+
+ERROR="${RED}error${ENDCOLOR}"
+WARN="${YELLOW}warn${ENDCOLOR}"
+INFO="${GREEN}info${ENDCOLOR}"
+DEBUG="${BLUE}debug${ENDCOLOR}"
+
+true=1
+false=0
+
+# user config or file config
+CONFIG_MODE="user_CONFIG"
+[ ! -z "$USER_CFG_FILE_OPTION" ] && {
+    if [ -f "$USER_CFG_FILE_OPTION" ]; then
+        CONFIG_MODE="file_CONFIG"
+        source "$USER_CFG_FILE_OPTION"
+    else
+        echo "[$ERROR] no board "
+        return 1
+    fi
+}
+
+SRC=$(realpath "${BASH_SOURCE:-$0}")
+ROOT_PATH="${SRC%/*}/.."
+
+wrong_num() {
+    echo "\
+number not in range. please try again.
+"
+}
+
+wrong_res() {
+    echo "\
+i didn't understand your response. please try again.
+"
+}
+
+# function choose_board
+# BOARD= # cmd argc
+# DEBIAN_RELEASE_LIST=("buster" "bullseye")
+# DEBIAN_RELEASE_VERSION_LIST=("10" "11")
+# DESKTOP_TARGET_TYPE=("debug" "release")
+choose_board() {
+    local i=0
+
+    BOARD_LIST=()
+    for bd in "$ROOT_PATH/config/boards/*.conf"; do
+        BOARD_LIST+=("$(basename $bd | cut -d'.' -f1)")
+    done
+
+    BOARD_LIST_LEN=${#BOARD_LIST[@]}
+
+    BOARD_DESC=
+    while [[ $i -lt $BOARD_LIST_LEN ]]; do
+        BOARD_DESC=$(grep -m1 "BOARD_DESCRIPTION=" $ROOT_PATH/config/boards/${BOARD_LIST[$i]}.conf | awk -F "=" '{print $2}')
+        printf "%2s) %-8s - %s\n" \
+            $((i + 1)) "${BOARD_LIST[$i]}" "$BOARD_DESC"
+        [ "${BOARD_LIST[$i]}" = "$BOARD" ] && return 0
+        let i++
+    done
+
+    [ "$BOARD" ] && return 1
+
+    local DEFAULT_NUM
+    DEFAULT_NUM=1
+
+    export BOARD=
+    local ANSWER
+    while [ -z $BOARD ]; do
+        [ "$AUTOFILL" ] ||
+            if [ -z "$1" ]; then
+                # noask && return 1
+                echo -n "Which board would you like? ["$DEFAULT_NUM"] "
+                read $SHORT_READ ANSWER
+                [ "$SHORT_READ" ] && echo
+            else
+                echo $1
+                ANSWER=$1
+            fi
+
+        if [ -z "$ANSWER" ]; then
+            ANSWER="$DEFAULT_NUM"
+        fi
+
+        if [ -n "$(echo $ANSWER | sed -n '/^[0-9][0-9]*$/p')" ]; then
+            if [ $ANSWER -le $BOARD_LIST_LEN ] && [ $ANSWER -gt 0 ]; then
+                index=$((${ANSWER} - 1))
+                BOARD="${BOARD_LIST[$index]}"
+            else
+                wrong_num
+                return 1
+            fi
+        else
+            wrong_res
+            return 2
+        fi
+
+        if [ -n "$1" ]; then
+            break
+        fi
+    done
+    return 0
+}
+
+choose_board || {
+    echo "[$ERROR] choose_board failed."
+    return 1
+}

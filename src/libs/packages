@@ -1,0 +1,43 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+install_dependency() {
+    local cur_path=$(pwd)
+    [ ! -f "${cur_path}/debian/control" ] && {
+        log_err "no file, ${cur_path}/debian/control"
+        return 1
+    }
+    # Given a package name and/or control file, mk-build-deps will use equivs to generate a
+    # binary package which may be installed to satisfy all the build dependencies of the given
+    # package.
+    # If --build-dep and/or --build-indep are given, then the resulting binary package(s) will
+    # depend solely on the Build-Depends/Build-Depends-Indep dependencies, respectively.
+    need_sudo && $SUPERUSER_PERMISSION mk-build-deps -i -t "apt-get --yes" -r
+    return $?
+}
+
+build_package_source() {
+    local jcpus=$1
+    local cur_path=$(pwd)
+    [ ! -d "${cur_path}/debian/" ] && {
+        log_err "no folder, ${cur_path}/debian/"
+        return 1
+    }
+    # In order to perform a complete (re)build of a package properly
+    # This will do everything to make full binary and source packages for you. It will:
+    # • clean the source tree (debian/rules clean)
+    # • build the source package (dpkg-source -b)
+    # • build the program (debian/rules build)
+    # • build binary packages (fakeroot debian/rules binary)
+    # • make the .dsc file
+    # • make the .changes file, using dpkg-genchanges
+    if [ ! -z $jcpus ]; then
+        # need_sudo &&
+            dpkg-buildpackage -b -uc -us -j$jcpus
+        return $?
+    else
+        # need_sudo &&
+            dpkg-buildpackage -b -uc -us
+        return $?
+    fi
+}

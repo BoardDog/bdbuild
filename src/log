@@ -1,0 +1,36 @@
+#!/bin/bash
+
+log_info() {
+    [ -n "$*" ] &&
+        echo -e "[$INFO]: $1"
+}
+
+info_() {
+    [ -n "$*" ] &&
+        echo -e "[$INFO]: $*"
+}
+
+log_warn() {
+    local _FILE=${BASH_SOURCE[1]}
+    local _LINE=${BASH_LINENO[0]}
+    local _FUNC=${FUNCNAME[1]}
+    [ -n "$*" ] &&
+        echo -e "[$_FILE:$_FUNC:$_LINE][$WARN]: $1"
+}
+
+log_err() {
+    local _FILE=${BASH_SOURCE[1]}
+    local _LINE=${BASH_LINENO[0]}
+    [ -n "$*" ] &&
+        echo -e "[$_FILE:$_LINE][$ERROR]: $1"
+}
+
+debug() {
+    [ ! -z _DEBUG ] && [ -n "$*" ] &&
+        echo -e "[$DEBUG]: $*"
+}
+
+log_() {
+    [ -n "$*" ] &&
+        echo -e "$*"
+}
