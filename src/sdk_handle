@@ -1,0 +1,42 @@
+#!/bin/bash
+
+repo_sync_dl() {
+    local ret=0
+    cd "${CODE_PATH}/" && debug "entry ${CODE_PATH}/"
+    # e.g: repo init --no-clone-bundle --repo-url https://gitlab.com/boarddogboy/doghouse/git-repo.git -u https://gitlab.com/boarddogboy/doghouse/manifests.git -m rk3288_bsp_release_v0.0.1.xml
+    local repo_url="${_G_GIT_PROTOCOL}://${_G_GIT_REPOSITORY_DOMAIN}/${_G_ORGANIZATION}/${_G_RP_REPO_NM}.git"
+    local repo_branch=${_G_RP_REPO_BH:-stable}
+    local manifests_url="${_G_GIT_PROTOCOL}://${_G_GIT_REPOSITORY_DOMAIN}/${_G_ORGANIZATION}/${_G_RP_MANIFESTS_NM}.git"
+    local manifests_branch=${_G_RP_MANIFESTS_BH:-stable}
+    log_info "repo init manifests <url: '$manifests_url', branch: '$manifests_branch'>, repo <url: '$repo_url', branch: '$repo_branch'>."
+    local manifests_target_xml=${__CF_MANIFESTS_FLS:-default.xml}
+    repo init --no-clone-bundle --repo-url $repo_url --repo-branch $repo_branch -u $manifests_url -b $manifests_branch -m $manifests_target_xml || {
+        ret=$?
+        log_err "repo init failed."
+        return $ret
+    }
+    .repo/repo/repo sync -c --no-tags || {
+        ret=$?
+        log_err "repo sync source code from git repository failed."
+        return $ret
+    }
+    rollback_dir && debug "entry $(pwd)"
+    return $ret
+}
+
+sdk() {
+    local ret=0
+    # @1. download source code
+    repo_sync_dl
+    # @2. command process
+    local cmd_nm=$1
+    log_info "__build_cmd $cmd_nm process..."
+    if [ "$(type -t __build_cmd)" = "function" ]; then
+        __build_cmd $cmd_nm || {
+            ret=$?
+            log_err "__build_cmd $cmd_nm failed"
+            return $ret
+        }
+    fi
+    return $ret
+}

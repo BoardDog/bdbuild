@@ -1,1 +1,386 @@
 #!/bin/bash
+
+mount_chroot() {
+	local target=$1
+	if [ -z "$target" ]; then
+		log_info "usage: mount_chroot <target>"
+		return -1
+	fi
+	grep -q $target/proc /proc/mounts && return
+	# shared path to host system from chroot
+	mount -t proc chproc $target/proc
+	mount -t sysfs chsys $target/sys
+	# get it from /sys/fs
+	mount -t devtmpfs chdev $target/dev || mount --bind /dev $target/dev
+	mount -t devpts chpts $target/dev/pts
+	# maybe need it
+	mount -t tmpfs chrun $target/run
+	mkdir -p $target/run/lock
+}
+
+unmount_chroot(){
+    [ "$1" = "-v" -o "$1" = "-vv" ] && verbose_=$1 && shift
+    [ "$verbose_" ] && log_info "[i] unmount_chroot $@" >&2
+    # simple deep unmount must works at most of cases ;-)
+    for t in "$@"; do
+	[ -d "$t" ] || continue
+	t_=$(realpath "$t")
+	max_=10
+	while [ $max_ -gt 0 ]; do
+	    mounted_=$(egrep -o "\s+$t_\S*" /proc/mounts 2>/dev/null | sort -r | uniq || true)
+	    [ ${#mounted_} = 0 ] && break
+	    [ "$verbose_" = "-vv" ] && log_info "[i] umount($max_) " $mounted_ >&2
+	    msg_=$($sudo umount -v -R $mounted_ 2>&1 || echo ERROR)
+	    max_=$((max_-1))
+	done
+	[ $max_ = 0 ] && {
+	    log_err "[e] umount_deep $@ - $msg_"
+	    return -1
+	}
+    done
+    return 0
+}
+
+install_deb_chroot() {
+    local target_rootfs_path="$ROOTFS_BASE_ROOT_PATH/binary"
+	local package=$1
+	local name=$(basename $package)
+	[ -e "$package" ] || {
+	    log_warn "installing $name in chroot skipped (not exist)"
+	    return 0
+	}
+	cp $package $target_rootfs_path/packages/$name
+	log_info "installing $name in chroot..."
+	mount_chroot "$target_rootfs_path"
+	chroot $target_rootfs_path /bin/bash -c "dpkg -i /packages/$name" || exit 1
+	unmount_chroot "$target_rootfs_path"
+	rm -f $target_rootfs_path/packages/$name
+}
+
+execute_in_chroot() {
+    local target_rootfs_path="$ROOTFS_BASE_ROOT_PATH/binary"
+	local cmd=$1
+	[ "$cmd" ] || {
+	    log_err "command required!"
+	    return 1
+	}
+	log_info "executing '$cmd' in chroot..."
+	mount_chroot "$target_rootfs_path"
+	LC_ALL=C LANG=C chroot $target_rootfs_path /bin/bash -c "$cmd"
+	umount_chroot "$target_rootfs_path"
+}
+
+prepare_base_rootfs() {
+    local target_rootfs_path="$ROOTFS_BASE_ROOT_PATH/binary"
+    [ ! -d $target_rootfs_path ] && mkdir -p $target_rootfs_path
+    [ -f $_G_ROOTFS_BASE_PG_NM ] && {
+        log_info "extract to $target_rootfs_path"
+        extract_package "$ROOTFS_BASE_ROOT_PATH/$_G_ROOTFS_BASE_PG_NM" $target_rootfs_path
+        [ $? == 0 ] && {
+            log_info "$_G_ROOTFS_BASE_PG_NM extract success"
+            $SUPERUSER_PERMISSION cp -b /etc/resolv.conf $target_rootfs_path/etc/resolv.conf
+            if [ "$_G_ARCH" == "armhf" ]; then
+                $SUPERUSER_PERMISSION cp -b /usr/bin/qemu-arm-static $target_rootfs_path/usr/bin/
+            elif [ "$_G_ARCH" == "arm64"  ]; then
+                $SUPERUSER_PERMISSION cp -b /usr/bin/qemu-aarch64-static $target_rootfs_path/usr/bin/
+            fi
+        }
+    }
+    return 0
+}
+
+prepare_base_config_chroot() {
+    local target_rootfs_path="$ROOTFS_BASE_ROOT_PATH/binary"
+    mount_chroot $target_rootfs_path
+    cat << EOF | $SUPERUSER_PERMISSION chroot $target_rootfs_path
+echo exit 101 > /usr/sbin/policy-rc.d
+chmod +x /usr/sbin/policy-rc.d
+# journal service adjustements
+sed -i "s/#Storage=.*/Storage=volatile/g" /etc/systemd/journald.conf
+sed -i "s/#Compress=.*/Compress=yes/g" /etc/systemd/journald.conf
+sed -i "s/#RateLimitIntervalSec=.*/RateLimitIntervalSec=30s/g" /etc/systemd/journald.conf
+sed -i "s/#RateLimitBurst=.*/RateLimitBurst=10000/g" /etc/systemd/journald.conf
+# premit root login via SSH for the first boot
+sed -i 's/#\?PermitRootLogin .*/PermitRootLogin yes/' /etc/ssh/sshd_config
+# enable additional services
+systemctl --no-reload enable resize2fs.service system-check.service
+# disable repeated messages due to xconsole not being installed.
+[[ -f /etc/rsyslog.d/50-default.conf ]] && sed '/daemon\.\*\;mail.*/,/xconsole/ s/.*/#&/' -i /etc/rsyslog.d/50-default.conf
+# disable deprecated parameter
+[ -f /etc/rsyslog.conf ] && sed '/.*$KLogPermitNonKernelFacility.*/,// s/.*/#&/' -i /etc/rsyslog.conf
+EOF
+    unmount_chroot $target_rootfs_path
+}
+
+prepare_user_config_chroot() {
+    local target_rootfs_path="$ROOTFS_BASE_ROOT_PATH/binary"
+    mount_chroot $target_rootfs_path
+    cat << EOF | $SUPERUSER_PERMISSION chroot $target_rootfs_path
+export LC_ALL=C
+export LANG=C
+# default VARS
+DEFAULT_USER_NAME=haos
+DEFAULT_USER_PASSWORD=haos@1234
+DEFAULT_ROOT_PASSWORD=haos@1234
+DEFAULT_SHELL=/bin/bash
+DEFAULT_GROUPS="audio,video,disk,input,tty,root,users,games,dialout,cdrom,dip,plugdev,bluetooth,pulse-access,systemd-journal,netdev,staff,i2c"
+[ "$USER_NAME" ] || USER_NAME=$DEFAULT_USER_NAME
+[ "$ROOT_PASSWORD" = "-" ] && ROOT_PASSWORD=$DEFAULT_USER_PASSWORD
+[ "$USER_PASSWORD" = "-" ] && USER_PASSWORD=$DEFAULT_ROOT_PASSWORD
+[ "$HOSTNAME" ] || HOSTNAME=$DEFAULT_USER_NAME
+[ "$USER_SHELL" ] || USER_SHELL=$DEFAULT_SHELL
+# setup password for root
+if [ "$ROOT_PASSWORD" ]; then
+    ROOT_PASSW=${ROOT_PASSWORD//?/\*}
+    echo root:$ROOT_PASSWORD | chpasswd
+else
+    ROOT_PASSW="__EMPTY__"
+    passwd -d root
+fi
+# setup password for user
+if [ "$USER_PASSWORD" ]; then
+    # openssl help passwd # read more about this
+    USER_PASSWORD_ENCRYPTED=$(echo -n "$USER_PASSWORD" | openssl passwd -5 -stdin)
+    useradd -m -p "$USER_PASSWORD_ENCRYPTED" -s $USER_SHELL $USER_NAME
+    USER_PASSW=${USER_PASSWORD//?/\*}
+else
+    useradd -m -s $USER_SHELL $USER_NAME
+    USER_PASSW="__EMPTY__"
+    passwd -d $USER_NAME
+fi
+# config secure tty
+for tty in ${_G_SECURE_TTY_LIST[@]}; do
+    echo $tty >>/etc/securetty
+done
+# user mod config
+usermod -aG sudo,adm $USER_NAME
+# add group
+IFS=','
+for group in $DEFAULT_GROUPS; do
+    /bin/egrep  -i "^$group" /etc/group > /dev/null
+    if [ $? -ne 0 ]; then
+        echo "Group '$group' does not exists in /etc/group, creating"
+        groupadd $group
+    fi
+done
+unset IFS
+usermod -a -G $DEFAULT_GROUPS $USER_NAME
+# set hostname
+echo $HOSTNAME >/etc/hostname
+# add hostname to hosts
+echo "127.0.0.1   localhost $HOSTNAME" >/etc/hosts
+echo "::1         localhost $HOSTNAME ip6-localhost ip6-loopback" >>/etc/hosts
+echo "fe00::0     ip6-localnet" >>/etc/hosts
+echo "ff00::0     ip6-mcastprefix" >>/etc/hosts
+echo "ff02::1     ip6-allnodes" >>/etc/hosts
+echo "ff02::2     ip6-allrouters" >>/etc/hosts
+EOF
+    unmount_chroot $target_rootfs_path
+}
+
+prepare_overlay_process() {
+    log_info "copy overlay to rootfs"
+    local target_rootfs_path="$ROOTFS_BASE_ROOT_PATH/binary"
+    local rootfs_root_path=$ROOTFS_BASE_ROOT_PATH
+    mkdir -p $target_rootfs_path/packages
+    cp -rf $rootfs_root_path/packages/$_G_ARCH/* $target_rootfs_path/packages
+    # some configs
+    cp -rf $rootfs_root_path/overlay/etc $target_rootfs_path/
+    cp -rf $rootfs_root_path/overlay/lib $target_rootfs_path/usr/
+    cp -rf $rootfs_root_path/overlay/usr $target_rootfs_path/
+    if [ "$ARCH" == "armhf"  ]; then
+        cp $rootfs_root_path/overlay-firmware/usr/bin/brcm_patchram_plus1_32 $target_rootfs_path/usr/bin/brcm_patchram_plus1
+        cp $rootfs_root_path/overlay-firmware/usr/bin/rk_wifi_init_32 $target_rootfs_path/usr/bin/rk_wifi_init
+    elif [ "$ARCH" == "arm64"  ]; then
+        cp $rootfs_root_path/overlay-firmware/usr/bin/brcm_patchram_plus1_64 $target_rootfs_path/usr/bin/brcm_patchram_plus1
+        cp $rootfs_root_path/overlay-firmware/usr/bin/rk_wifi_init_64 $target_rootfs_path/usr/bin/rk_wifi_init
+    fi
+    # bt,wifi,audio firmware
+    mkdir -p $target_rootfs_path/system/lib/modules/
+    find $CODE_PATH/kernel/drivers/net/wireless/rockchip_wlan/*  -name "*.ko" | \
+        xargs -n1 -i sudo cp {} $target_rootfs_path/system/lib/modules/
+    cp -rf $rootfs_root_path/overlay-firmware/etc $target_rootfs_path/
+    cp -rf $rootfs_root_path/overlay-firmware/lib $target_rootfs_path/usr/
+    cp -rf $rootfs_root_path/overlay-firmware/usr $target_rootfs_path/
+    # adb
+    if [ "$_G_ROOTFS_DEBUG_TAG" == "debug" ]; then
+        if [ "$ARCH" == "armhf" ]; then
+            cp -rf $rootfs_root_path/overlay-debug/usr/local/share/adb/adbd-32 $target_rootfs_path/usr/local/bin/adbd
+        elif [ "$ARCH" == "arm64"  ]; then
+            cp -rf $rootfs_root_path/overlay-debug/usr/local/share/adb/adbd-64 $target_rootfs_path/usr/local/bin/adbd
+        fi
+    fi
+    if [ "$_G_ROOTFS_DEBUG_TAG" == "debug" ] || [ "$_G_ROOTFS_DEBUG_TAG" == "jenkins" ]; then
+        # adb, video, camera  test file
+        cp -rf $rootfs_root_path/overlay-debug/etc $target_rootfs_path/
+        cp -rf $rootfs_root_path/overlay-debug/lib $target_rootfs_path/usr/
+        cp -rf $rootfs_root_path/overlay-debug/usr $target_rootfs_path/
+    fi
+    if  [ "$VERSION" == "jenkins" ] ; then
+        # network
+        cp -b /etc/resolv.conf  $target_rootfs_path/etc/resolv.conf
+    fi
+}
+
+install_base_deb() {
+    local target_rootfs_path="$ROOTFS_BASE_ROOT_PATH/binary"
+    mount_chroot $target_rootfs_path
+    cat << EOF | $SUPERUSER_PERMISSION chroot $target_rootfs_path
+echo exit 101 > /usr/sbin/policy-rc.d
+chmod +x /usr/sbin/policy-rc.d
+# journal service adjustements
+sed -i "s/#Storage=.*/Storage=volatile/g" /etc/systemd/journald.conf
+sed -i "s/#Compress=.*/Compress=yes/g" /etc/systemd/journald.conf
+sed -i "s/#RateLimitIntervalSec=.*/RateLimitIntervalSec=30s/g" /etc/systemd/journald.conf
+sed -i "s/#RateLimitBurst=.*/RateLimitBurst=10000/g" /etc/systemd/journald.conf
+EOF
+    unmount_chroot $target_rootfs_path
+}
+
+install_user_deb() {
+    local target_rootfs_path="$ROOTFS_BASE_ROOT_PATH/binary"
+    mount_chroot $target_rootfs_path
+    # install info
+    #---------------Rga--------------
+    # dpkg -i /packages/rga/*.deb
+    # echo -e "\033[36m Setup Video.................... \033[0m"
+    # apt-get install -y gstreamer1.0-plugins-bad gstreamer1.0-plugins-base gstreamer1.0-tools gstreamer1.0-alsa \
+    # gstreamer1.0-plugins-base-apps qtmultimedia5-examples
+    # apt-get install -f -y
+    # dpkg -i  /packages/mpp/*
+    # dpkg -i  /packages/gst-rkmpp/*.deb
+    # dpkg -i  /packages/gst-base/*.deb
+    # apt-mark hold gstreamer1.0-x
+    # apt-get install -f -y
+    #---------Camera---------
+    # echo -e "\033[36m Install camera.................... \033[0m"
+    # apt-get install cheese v4l-utils -y
+    # dpkg -i  /packages/rkisp/*.deb
+    # dpkg -i  /packages/libv4l/*.deb
+    #---------Xserver---------
+    # echo -e "\033[36m Install Xserver.................... \033[0m"
+    # apt-get build-dep -y xorg-server-source
+    # apt-get install -y libgl1-mesa-dev libgles1 libgles1 libegl1-mesa-dev libc-dev-bin libc6-dev libfontenc-dev libfreetype6-dev \
+    # libpciaccess-dev libpng-dev libpng-tools libxfont-dev libxkbfile-dev linux-libc-dev manpages manpages-dev xserver-common zlib1g-dev \
+    # libdmx1 libpixman-1-dev libxcb-xf86dri0 libxcb-xv0
+    # apt-get install -f -y
+    # dpkg -i /packages/xserver/*.deb
+    # apt-get install -f -y
+    # apt-mark hold xserver-common xserver-xorg-core xserver-xorg-legacy
+    #---------------Openbox--------------
+    # echo -e "\033[36m Install openbox.................... \033[0m"
+    # apt-get install -y openbox
+    # dpkg -i  /packages/openbox/*.deb
+    # apt-get install -f -y
+    #------------------pcmanfm------------
+    # echo -e "\033[36m Install pcmanfm.................... \033[0m"
+    # apt-get install -y pcmanfm
+    # dpkg -i  /packages/pcmanfm/*.deb
+    # apt-get install -f -y
+    #------------------mpv------------
+    # echo -e "\033[36m Install mpv.................... \033[0m"
+    # apt-get install -y libmpv1 mpv
+    # dpkg -i  /packages/mpv/*.deb
+    # apt-get install -f -y
+    # mark package to hold
+    # apt-mark hold libv4l-0 libv4l2rds0 libv4lconvert0 libv4l-dev v4l-utils
+    # apt-mark hold librockchip-mpp1 librockchip-mpp-static librockchip-vpu0 rockchip-mpp-demos
+    # apt-mark hold xserver-common xserver-xorg-core xserver-xorg-legacy
+    # apt-mark hold libegl-mesa0 libgbm1 libgles1 alsa-utils
+    # apt-get install -f -y
+    cat << EOF | $SUPERUSER_PERMISSION chroot $target_rootfs_path
+# +++++++++++++++++++++++++++++++++++++++ packages process +++++++++++++++++++++++++++++++++++++++
+echo -e "\033[36m Install ffmpeg \033[0m"
+\${APT_INSTALL_CMD} ffmpeg
+dpkg -i  /packages/ffmpeg/*.deb
+\${APT_INSTALL_CMD}
+echo -e "\033[36m Install libdrm \033[0m"
+dpkg -i  /packages/libdrm/*.deb
+apt-get install -f -y
+echo -e "\033[36m Install power management \033[0m"
+\${APT_INSTALL_CMD} busybox pm-utils triggerhappy
+cp /etc/Powermanager/triggerhappy.service  /lib/systemd/system/triggerhappy.service
+# +++++++++++++++++++++++++++++++++++++++ user process +++++++++++++++++++++++++++++++++++++++++++
+if [ "$_G_ROOTFS_TARGET_TYPE" == "server" ]; then
+    \${APT_INSTALL_CMD} rsyslog sudo dialog apt-utils ntp evtest
+fi
+EOF
+    unmount_chroot $target_rootfs_path
+}
+
+install_bsp_deb() {
+    # Install linux image deb in chroot
+	if [ -f $BUILD_DEBS/$VERSION/$KHADAS_BOARD/${LINUX_IMAGE_DEB}_${VERSION}_${DISTRIB_ARCH}.deb ]; then
+		install_deb_chroot $BUILD_DEBS/$VERSION/$KHADAS_BOARD/${LINUX_IMAGE_DEB}_${VERSION}_${DISTRIB_ARCH}.deb
+	fi
+	# Install linux dtb deb in chroot
+	if [ -f $BUILD_DEBS/$VERSION/$KHADAS_BOARD/${LINUX_IMAGE_DEB/image/dtb}_${VERSION}_${DISTRIB_ARCH}.deb ]; then
+		install_deb_chroot $BUILD_DEBS/$VERSION/$KHADAS_BOARD/${LINUX_IMAGE_DEB/image/dtb}_${VERSION}_${DISTRIB_ARCH}.deb
+	fi
+	# Install linux headers deb in chroot
+	if [ "$SKIP_HEADER_DEB" != "yes" ]; then
+		if [ -f $BUILD_DEBS/$VERSION/$KHADAS_BOARD/${LINUX_IMAGE_DEB/image/headers}_${VERSION}_${DISTRIB_ARCH}.deb ]; then
+			install_deb_chroot $BUILD_DEBS/$VERSION/$KHADAS_BOARD/${LINUX_IMAGE_DEB/image/headers}_${VERSION}_${DISTRIB_ARCH}.deb
+		fi
+	else
+		warning_msg "Skip install header package ..."
+	fi
+	# Install linux firmware in chroot
+	if [ -f $BUILD_DEBS/$VERSION/$KHADAS_BOARD/${LINUX_FIRMWARE_DEB}_${VERSION}_${DISTRIB_ARCH}.deb ]; then
+		install_deb_chroot $BUILD_DEBS/$VERSION/$KHADAS_BOARD/${LINUX_FIRMWARE_DEB}_${VERSION}_${DISTRIB_ARCH}.deb
+	fi
+	# Install u-boot deb in chroot
+	if [ -f $BUILD_DEBS/$VERSION/$KHADAS_BOARD/${LINUX_UBOOT_DEB}_${VERSION}-${UBOOT_VER}_${DISTRIB_ARCH}.deb ]; then
+		install_deb_chroot $BUILD_DEBS/$VERSION/$KHADAS_BOARD/${LINUX_UBOOT_DEB}_${VERSION}-${UBOOT_VER}_${DISTRIB_ARCH}.deb
+	fi
+	if [ -n "$GPU_VER" ]; then
+		# Install GPU deb in chroot
+		if [ -f $BUILD_DEBS/$VERSION/$KHADAS_BOARD/linux-gpu-mali-${GPU_PLATFORM}_${VERSION}-${GPU_VER}_${DISTRIB_ARCH}.deb ]; then
+			install_deb_chroot $BUILD_DEBS/$VERSION/$KHADAS_BOARD/linux-gpu-mali-${GPU_PLATFORM}_${VERSION}-${GPU_VER}_${DISTRIB_ARCH}.deb
+		fi
+		# Install GPU development deb in chroot
+		if [ -f $BUILD_DEBS/$VERSION/$KHADAS_BOARD/linux-gpu-${VENDOR,,}-dev_${VERSION}_${DISTRIB_ARCH}.deb ]; then
+			install_deb_chroot $BUILD_DEBS/$VERSION/$KHADAS_BOARD/linux-gpu-${VENDOR,,}-dev_${VERSION}_${DISTRIB_ARCH}.deb
+		fi
+	fi
+	# Install common deb packages
+	if [[ $(type -t install_common_deb) == function ]]; then
+		install_common_deb
+	fi
+	# Install packages platform
+	if [[ $(type -t install_deb_packages_platform) == function ]]; then
+		install_deb_packages_platform
+	fi
+	# Install board deb in chroot
+	install_deb_chroot $BUILD_DEBS/$VERSION/$KHADAS_BOARD/${DISTRIBUTION}-${DISTRIB_RELEASE}/${LINUX_BOARD_DEB}_${VERSION}_${DISTRIB_ARCH}.deb
+	if [ "$DISTRIB_TYPE" != "minimal" ]; then
+		# Install updater deb in chroot
+		install_deb_chroot $BUILD_DEBS/$VERSION/$KHADAS_BOARD/${DISTRIBUTION}-${DISTRIB_RELEASE}/${FENIX_UPDATER_DEB}_${VERSION}_${DISTRIB_ARCH}.deb
+	fi
+}
+
+windup_process() {
+    local target_rootfs_path="$ROOTFS_BASE_ROOT_PATH/binary"
+    mount_chroot $target_rootfs_path
+    cat << EOF | $SUPERUSER_PERMISSION chroot $target_rootfs_path
+# command handle
+export APT_INSTALL_CMD="apt-get install -f -y"
+apt-get -y update
+# +++++++++++++++++++++++++++++++++++++++ clean process ++++++++++++++++++++++++++++++++++++++++++
+apt-get clean
+apt-get -y autoremove
+rm -rf /var/lib/apt/lists/*
+EOF
+    unmount_chroot $target_rootfs_path
+}
+
+build_rootfs_a() {
+    prepare_overlay_process
+    prepare_base_rootfs
+    prepare_base_config_chroot
+    prepare_user_config_chroot
+    install_base_deb
+    install_bsp_deb
+    install_user_deb
+    windup_process
+}

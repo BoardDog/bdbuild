@@ -1,0 +1,25 @@
+#!/bin/bash
+
+CMD=$(realpath $0)
+FILE_PATH=$(dirname $CMD)
+ROOT_PATH=$(realpath $FILE_PATH/)
+
+# function <get_cmd_dsc>
+# get command descriptions in the board configuration file
+# @$1: -f option value
+get_cmd_dsc() {
+    local cfg_file=$1
+    if [ -f "$ROOT_PATH/$cfg_file" ]; then
+        . "$ROOT_PATH/$cfg_file"
+        local board=$BOARD
+        if [ -f "$ROOT_PATH/config/boards/$board.conf" ]; then
+            . $ROOT_PATH/config/boards/$board.conf
+            [ ! -d "$ROOT_PATH/.tmp/" ] && mkdir -p $ROOT_PATH/.tmp/
+            if [ "$(type -t __build_cmd)" = "function" ]; then
+                local dsc=$(__build_cmd help)
+                echo $dsc >$ROOT_PATH/.tmp/cmd.info
+            fi
+        fi
+    fi
+    cat $ROOT_PATH/.tmp/cmd.info
+}

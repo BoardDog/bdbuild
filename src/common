@@ -107,10 +107,9 @@ run_call_acc_app_listording_app_list() {
     local _app_list=$1
     local _cmd_callback=$2
     local _specify_app=$3
-    debug "$_specify_app"
     [ ! -z $_specify_app ] && {
         _is_in_list "${_app_list[*]}" $_specify_app || {
-            log_err "$_specify_app not in app list(${_app_list[*]})."
+            log_err "$_specify_app not in list(${_app_list[*]})."
             return 1
         }
     }
@@ -133,6 +132,8 @@ run_call_acc_app_listording_app_list() {
 }
 
 # function <extract_package>
+# @$1: package name
+# @$1: target path
 extract_package() {
     local PACKAGE_NM=$1
     local DST_PATH=$2
@@ -142,7 +143,7 @@ extract_package() {
         if [[ $PACKAGE_NM =~ ${pattern//./\\.}$ ]]; then
             f="$PACKAGE_NM"
             if [ ! -f $f ]; then
-                log_err "File $PACKAGE_NM doesn't exist in package downloads directory"
+                log_err "file $PACKAGE_NM doesn't exist in package downloads directory"
                 return -1
             fi
             case $PACKAGE_NM in

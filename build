@@ -5,6 +5,8 @@ set -e -o pipefail
 
 # TODO: exit when the source command is detected
 
+source src/.var
+
 # function usage
 usage() {
     echo -n "\
@@ -17,10 +19,10 @@ Usage: $BASH_SOURCE [OPTION]... [PARAM=VAL]...
         clean/cn    clean all spanned file
     -b/build        building the specified package
     -s/image        building image
+	$(get_cmd_dsc $USER_CFG_FILE_OPTION)
     -j/jobs         specify the number of cpus to build when building the package
 
 Description: Board Build Tools.
-Author: Morty Zhao <morty.zhaoy@gmail.com>
 License: GPL-3.0-or-later
 "
 }
@@ -39,7 +41,7 @@ _parse_param() {
         j) MC_CPU_NUMBERS_OPTION="${OPTARG}" ;;
         c) C_CMD_OPTION="${OPTARG}" ;;
         q)
-            # clears temporary variables and Quit
+            # clears temporary variables and quit
             exit 0
             ;;
         h)
@@ -103,22 +105,16 @@ _main() {
     }
     prepare_packages || return 2
     # core process
-    if [ ! -z $APP_OPTION ]; then
-        log_info "build app..."
-        build_de_a $APP_OPTION
-    elif [ ! -z $IMAGE_OPTION ]; then
-        log_info "build image..."
-        build_image_a $IMAGE_OPTION
-    else
-        log_info "build os..."
-        build_os_a $APP_OPTION $IMAGE_OPTION
-    fi
+    # @1. build app
+    # @2. build sdk - uboot
+    # @3. build sdk - kernel deb
+    # @4. build ubuntu rootfs
+    # @5. build image
     ret=$?
     # post process
     clean_old_session
-    log_info "\nbuild done, $(date)"
+    log_info "build done, $(date)"
     end_time=$(date +%s)
-
     time_cal $(($end_time - $start_time))
     return $ret
 }

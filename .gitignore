@@ -1,2 +1,5 @@
-.tmp/
-output/
+# main
+/.tmp/*
+/output/
+# debug
+# !/.tmp/code/

@@ -17,6 +17,8 @@ DOWNLOAD_PATH="${TEMP_PATH}/dl"
 DL_STATUS_FILE_PATH="${DOWNLOAD_PATH}/.dl_file_ec_s.info"
 # Source code Path
 CODE_PATH="${TEMP_PATH}/code"
+# Ubuntu code Path
+ROOTFS_BASE_ROOT_PATH="${CODE_PATH}/ubuntu"
 # Obj Path
 OBJ_PATH="${TEMP_PATH}/obj"
 # OS compilation intermediate path
@@ -56,7 +58,11 @@ MC_CPU_NUMBERS_MAX=$(grep -c processor /proc/cpuinfo)
 source "${CONFIG_BOARDS_PATH}/${BOARD}.conf"
 
 SUPERUSER_PERMISSION="sudo -E"
+
 # Session
 # e.g: 0cd3f7a58c924d88764cac27542ba865
 PROJECT_SESSION_ID=$(echo -n $(base64 </dev/urandom | head -c20) | md5sum | awk -F ' ' '{print $1}')
 SESSION_PID_FILE=${TEMP_PATH}/$PROJECT_SESSION_ID.pid
+
+# Log file(default)
+DEFAULT_LOG_FIELE=${TEMP_PATH}/$PROJECT_SESSION_ID.log
