@@ -14,15 +14,15 @@ Usage: $BASH_SOURCE [OPTION]... [PARAM=VAL]...
 
     -f/config       config file
     -h/help
-    -c/command      specify a custom commandd
+    -c/command      specify a custom command
         clear/cr    clears temporary variables about the project in the current shell
         clean/cn    clean all spanned file
     -b/build        building the specified package
-    -s/image        building image
-	$(get_cmd_dsc $USER_CFG_FILE_OPTION)
     -j/jobs         specify the number of cpus to build when building the package
+    -s/sdk          sdk command
+	$(get_cmd_dsc $USER_CFG_FILE_OPTION)
 
-Description: Board Build Tools.
+Description: Board Dog Build Tool
 License: GPL-3.0-or-later
 "
 }
@@ -78,6 +78,8 @@ source src/build_de
 source src/build_rootfs
 source src/build_image
 source src/build_os
+source src/build_app
+source src/sdk_handle
 
 # function main
 _main() {
@@ -106,10 +108,18 @@ _main() {
     prepare_packages || return 2
     # core process
     # @1. build app
-    # @2. build sdk - uboot
-    # @3. build sdk - kernel deb
-    # @4. build ubuntu rootfs
-    # @5. build image
+    [ ! -z $APP_OPTION ] && build_app_a
+    if [ ! -z $IMAGE_OPTION ]; then
+        sdk $IMAGE_OPTION
+        # @2. build sdk - uboot
+        # sdk uboot
+        # @3. build sdk - kernel deb
+        # sdk kernel
+        # @4. build ubuntu rootfs
+        # @5. build image
+    else
+        sdk
+    fi
     ret=$?
     # post process
     clean_old_session

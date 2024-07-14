@@ -15,6 +15,7 @@ repo_sync_dl() {
         log_err "repo init failed."
         return $ret
     }
+    log_info "repo sync source code."
     .repo/repo/repo sync -c --no-tags || {
         ret=$?
         log_err "repo sync source code from git repository failed."
@@ -25,11 +26,13 @@ repo_sync_dl() {
 }
 
 sdk() {
+    log_info "sdk handle process..."
     local ret=0
     # @1. download source code
     repo_sync_dl
     # @2. command process
     local cmd_nm=$1
+    [ -z $cmd_nm ] && return $ret
     log_info "__build_cmd $cmd_nm process..."
     if [ "$(type -t __build_cmd)" = "function" ]; then
         __build_cmd $cmd_nm || {
