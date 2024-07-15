@@ -95,6 +95,8 @@ config BR2_NEEDS_HOST_UTF8_LOCALE
 config BR2_NEEDS_HOST_GCC_PLUGIN_SUPPORT
 	bool
 
+source "toolchain/Config.in"
+
 source "arch/Config.in"
 
 menu "Build options"

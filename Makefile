@@ -324,6 +324,40 @@ ifneq ($(firstword $(HOSTCC_VERSION)),4)
 HOSTCC_VERSION := $(firstword $(HOSTCC_VERSION))
 endif
 
+ifeq ($(BR2_NEEDS_HOST_UTF8_LOCALE),y)
+# First, we try to use the user's configured locale (as that's the
+# language they'd expect messages to be displayed), then we favour
+# a non language-specific locale like C.UTF-8 if one is available,
+# so we sort with the C locale to get it at the top.
+# This is guaranteed to not be empty, because of the check in
+# support/dependencies/dependencies.sh
+HOST_UTF8_LOCALE := $(shell \
+			( echo $${LC_ALL:-$${LC_MESSAGES:-$${LANG}}}; \
+			  locale -a 2>/dev/null | LC_ALL=C sort \
+			) \
+			| grep -i -E 'utf-?8$$' \
+			| head -n 1)
+HOST_UTF8_LOCALE_ENV := LC_ALL=$(HOST_UTF8_LOCALE)
+endif
+
+# Make sure pkg-config doesn't look outside the buildroot tree
+HOST_PKG_CONFIG_PATH := $(PKG_CONFIG_PATH)
+unexport PKG_CONFIG_PATH
+unexport PKG_CONFIG_SYSROOT_DIR
+unexport PKG_CONFIG_LIBDIR
+
+# Having DESTDIR set in the environment confuses the installation
+# steps of some packages.
+unexport DESTDIR
+
+# Causes breakage with packages that needs host-ruby
+unexport RUBYOPT
+
+# Compilation of perl-related packages will fail otherwise
+unexport PERL_MM_OPT
+
+include package/pkg-utils.mk
+
 # configuration
 # ---------------------------------------------------------------------------
 
@@ -415,6 +449,103 @@ savedefconfig: $(BUILD_DIR)/buildroot-config/conf outputmakefile
 
 ifeq ($(BR2_HAVE_DOT_CONFIG),y)
 
+################################################################################
+#
+# Hide troublesome environment variables from sub processes
+#
+################################################################################
+unexport CROSS_COMPILE
+unexport ARCH
+unexport CC
+unexport LD
+unexport AR
+unexport CXX
+unexport CPP
+unexport RANLIB
+unexport CFLAGS
+unexport CXXFLAGS
+unexport GREP_OPTIONS
+unexport TAR_OPTIONS
+unexport CONFIG_SITE
+unexport QMAKESPEC
+unexport TERMINFO
+unexport MACHINE
+unexport O
+unexport GCC_COLORS
+unexport PLATFORM
+unexport OS
+unexport DEVICE_TREE
+
+# GNU_HOST_NAME := $(shell support/gnuconfig/config.guess)
+
+PACKAGES :=
+PACKAGES_ALL :=
+
+# silent mode requested?
+QUIET := $(if $(findstring s,$(filter-out --%,$(MAKEFLAGS))),-q)
+
+# Strip off the annoying quoting
+ARCH := $(call qstrip,$(BR2_ARCH))
+NORMALIZED_ARCH := $(call qstrip,$(BR2_NORMALIZED_ARCH))
+KERNEL_ARCH := $(call qstrip,$(BR2_NORMALIZED_ARCH))
+
+ZCAT := $(call qstrip,$(BR2_ZCAT))
+BZCAT := $(call qstrip,$(BR2_BZCAT))
+XZCAT := $(call qstrip,$(BR2_XZCAT))
+LZCAT := $(call qstrip,$(BR2_LZCAT))
+TAR_OPTIONS = $(call qstrip,$(BR2_TAR_OPTIONS)) -xf
+
+ifeq ($(BR2_PER_PACKAGE_DIRECTORIES),y)
+HOST_DIR = $(if $(PKG),$(PER_PACKAGE_DIR)/$($(PKG)_NAME)/host,$(call qstrip,$(BR2_HOST_DIR)))
+TARGET_DIR = $(if $(ROOTFS),$(ROOTFS_$(ROOTFS)_TARGET_DIR),$(if $(PKG),$(PER_PACKAGE_DIR)/$($(PKG)_NAME)/target,$(BASE_TARGET_DIR)))
+else
+HOST_DIR := $(call qstrip,$(BR2_HOST_DIR))
+TARGET_DIR = $(if $(ROOTFS),$(ROOTFS_$(ROOTFS)_TARGET_DIR),$(BASE_TARGET_DIR))
+endif
+
+ifneq ($(HOST_DIR),$(BASE_DIR)/host)
+HOST_DIR_SYMLINK = $(BASE_DIR)/host
+$(HOST_DIR_SYMLINK): | $(BASE_DIR)
+	ln -snf $(HOST_DIR) $(HOST_DIR_SYMLINK)
+endif
+
+STAGING_DIR_SYMLINK = $(BASE_DIR)/staging
+$(STAGING_DIR_SYMLINK): | $(BASE_DIR)
+	ln -snf $(STAGING_DIR) $(STAGING_DIR_SYMLINK)
+
+# Quotes are needed for spaces and all in the original PATH content.
+BR_PATH = "$(HOST_DIR)/bin:$(HOST_DIR)/sbin:$(PATH)"
+
+# Location of a file giving a big fat warning that output/target
+# should not be used as the root filesystem.
+TARGET_DIR_WARNING_FILE = $(TARGET_DIR)/THIS_IS_NOT_YOUR_ROOT_FILESYSTEM
+
+ifeq ($(BR2_CCACHE),y)
+CCACHE = $(HOST_DIR)/bin/ccache
+BR_CACHE_DIR ?= $(call qstrip,$(BR2_CCACHE_DIR))
+export BR_CACHE_DIR
+HOSTCC = $(CCACHE) $(HOSTCC_NOCCACHE)
+HOSTCXX = $(CCACHE) $(HOSTCXX_NOCCACHE)
+export BR2_USE_CCACHE ?= 1
+endif
+
+# Scripts in support/ or post-build scripts may need to reference
+# these locations, so export them so it is easier to use
+export BR2_CONFIG
+export BR2_REPRODUCIBLE
+export TARGET_DIR
+export STAGING_DIR
+export HOST_DIR
+export BINARIES_DIR
+export BASE_DIR
+
+################################################################################
+#
+# You should probably leave this stuff alone unless you know
+# what you are doing.
+#
+################################################################################
+
 all: world
 
 include system/system.mk
@@ -423,6 +554,9 @@ include package/Makefile.in
 # complement variables defined therein, like BR_NO_CHECK_HASH_FOR.
 include arch/arch.mk
 include support/dependencies/dependencies.mk
+
+include $(sort $(wildcard toolchain/*.mk))
+include $(sort $(wildcard toolchain/*/*.mk))
 
 include $(sort $(wildcard package/*/*.mk))
 
@@ -454,19 +588,6 @@ target-post-image: $(TARGETS_ROOTFS) target-finalize staging-finalize
 			$(BINARIES_DIR) \
 			$(call qstrip,$(BR2_ROOTFS_POST_SCRIPT_ARGS)) \
 			$(call qstrip,$(BR2_ROOTFS_POST_IMAGE_SCRIPT_ARGS))$(sep))
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 else # ifeq ($(BR2_HAVE_DOT_CONFIG),y)
 
