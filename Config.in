@@ -26,40 +26,6 @@ config BR2_HOST_GCC_VERSION
 	string
 	option env="HOST_GCC_VERSION"
 
-config BR2_HOST_GCC_AT_LEAST_4_9
-	bool
-	default y if BR2_HOST_GCC_VERSION = "4 9"
-
-config BR2_HOST_GCC_AT_LEAST_5
-	bool
-	default y if BR2_HOST_GCC_VERSION = "5"
-	select BR2_HOST_GCC_AT_LEAST_4_9
-
-config BR2_HOST_GCC_AT_LEAST_6
-	bool
-	default y if BR2_HOST_GCC_VERSION = "6"
-	select BR2_HOST_GCC_AT_LEAST_5
-
-config BR2_HOST_GCC_AT_LEAST_7
-	bool
-	default y if BR2_HOST_GCC_VERSION = "7"
-	select BR2_HOST_GCC_AT_LEAST_6
-
-config BR2_HOST_GCC_AT_LEAST_8
-	bool
-	default y if BR2_HOST_GCC_VERSION = "8"
-	select BR2_HOST_GCC_AT_LEAST_7
-
-config BR2_HOST_GCC_AT_LEAST_9
-	bool
-	default y if BR2_HOST_GCC_VERSION = "9"
-	select BR2_HOST_GCC_AT_LEAST_8
-
-config BR2_HOST_GCC_AT_LEAST_10
-	bool
-	default y if BR2_HOST_GCC_VERSION = "10"
-	select BR2_HOST_GCC_AT_LEAST_9
-
 config BR2_HOST_GCC_AT_LEAST_11
 	bool
 	default y if BR2_HOST_GCC_VERSION = "11"
@@ -68,34 +34,10 @@ config BR2_HOST_GCC_AT_LEAST_11
 # When adding new entries above, be sure to update
 # the HOSTCC_MAX_VERSION variable in the Makefile.
 
-# Hidden boolean selected by packages in need of Java in order to build
-# (example: kodi)
-config BR2_NEEDS_HOST_JAVA
-	bool
-
-# Hidden boolean selected by pre-built packages for x86, when they
-# need to run on x86-64 machines (example: pre-built external
-# toolchains, binary tools, etc.).
-config BR2_HOSTARCH_NEEDS_IA32_LIBS
-	bool
-
-# Hidden boolean selected by packages that need to build 32 bits
-# binaries with the host compiler, even on 64 bits build machines (e.g
-# bootloaders).
-config BR2_HOSTARCH_NEEDS_IA32_COMPILER
-	bool
-
 # Hidden boolean selected by packages that need the host to have an
 # UTF8 locale.
 config BR2_NEEDS_HOST_UTF8_LOCALE
 	bool
-
-# Hidden boolean selected by packages that need the host to have
-# support for building gcc plugins
-config BR2_NEEDS_HOST_GCC_PLUGIN_SUPPORT
-	bool
-
-source "toolchain/Config.in"
 
 source "arch/Config.in"
 
