@@ -249,6 +249,23 @@ config BR2_CPAN_MIRROR
 	  http://mirrors.cpan.org/          (tabular)
 	  http://mirrors.cpan.org/map.html  (clickable world map)
 
+config BR2_UBUNTU_BASE_MIRROR
+	string "Ubuntu Base mirror (rootfs)"
+	default "https://cdimage.ubuntu.com/ubuntu-base/releases/"
+	help
+	  Ubuntu Base is a minimal rootfs for use in the creation of 
+	  custom images for specific needs. Ubuntu Base strives to 
+	  create a suitable minimal environment for use in Board 
+	  Support Packages, constrained or integrated environments, 
+	  as the basis for application demonstration images, or 
+	  Linux containers such as LXC or Docker (For OCI/docker 
+	  container images, see also the Ubuntu OCI project). 
+	  It is available for the i386, amd64, armhf, arm64, 
+	  powerpc and ppc64el architectures.
+
+	  The list of mirrors is available at:
+	  https://cdimage.ubuntu.com 
+
 endif
 
 endmenu
@@ -924,10 +941,6 @@ source "package/Config.in"
 source "fs/Config.in"
 
 source "boot/Config.in"
-
-# source "package/Config.in.host"
-
-# source "Config.in.legacy"
 
 # br2-external menus definitions
 source "$BR2_BASE_DIR/.br2-external.in.menus"

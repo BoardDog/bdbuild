@@ -662,35 +662,6 @@ list-defconfigs:
 # external-deps:
 # 	@$(MAKE1) -Bs $(EXTRAMAKEARGS) _external-deps | sort -u
 
-# .PHONY: legal-info-clean
-# legal-info-clean:
-# 	@rm -fr $(LEGAL_INFO_DIR)
-
-# .PHONY: legal-info-prepare
-# legal-info-prepare: $(LEGAL_INFO_DIR)
-# 	@$(call MESSAGE,"Buildroot $(BR2_VERSION_FULL) Collecting legal info")
-# 	@$(call legal-license-file,HOST,buildroot,buildroot,COPYING,COPYING,support/legal-info/buildroot.hash)
-# 	@$(call legal-manifest,TARGET,PACKAGE,VERSION,LICENSE,LICENSE FILES,SOURCE ARCHIVE,SOURCE SITE,DEPENDENCIES WITH LICENSES)
-# 	@$(call legal-manifest,HOST,PACKAGE,VERSION,LICENSE,LICENSE FILES,SOURCE ARCHIVE,SOURCE SITE,DEPENDENCIES WITH LICENSES)
-# 	@$(call legal-manifest,HOST,buildroot,$(BR2_VERSION_FULL),GPL-2.0+,COPYING,not saved,not saved)
-# 	@$(call legal-warning,the Buildroot source code has not been saved)
-# 	@cp $(BR2_CONFIG) $(LEGAL_INFO_DIR)/buildroot.config
-
-# .PHONY: legal-info
-# legal-info: legal-info-clean legal-info-prepare $(foreach p,$(PACKAGES),$(p)-all-legal-info) \
-# 		$(REDIST_SOURCES_DIR_TARGET) $(REDIST_SOURCES_DIR_HOST)
-# 	@cat support/legal-info/README.header >>$(LEGAL_REPORT)
-# 	@if [ -r $(LEGAL_WARNINGS) ]; then \
-# 		cat support/legal-info/README.warnings-header \
-# 			$(LEGAL_WARNINGS) >>$(LEGAL_REPORT); \
-# 		cat $(LEGAL_WARNINGS); fi
-# 	@rm -f $(LEGAL_WARNINGS)
-# 	@(cd $(LEGAL_INFO_DIR); \
-# 		find * -type f -exec sha256sum {} + | LC_ALL=C sort -k2 \
-# 			>.legal-info.sha256; \
-# 		mv .legal-info.sha256 legal-info.sha256)
-# 	@echo "Legal info produced in $(LEGAL_INFO_DIR)"
-
 .PHONY: show-info
 show-info:
 	@:

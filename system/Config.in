@@ -1,5 +1,103 @@
 menu "System configuration"
 
+choice
+	prompt "Ubuntu Base rootfs"
+
+config BR2_UBUNTU_BASE_ROOTFS_14_04_5
+	bool "14.04.5"
+	help
+	  Ubuntu Base 14.04.5 (Trusty Tahr)
+
+config BR2_UBUNTU_BASE_ROOTFS_14_04_6
+	bool "14.04.6"
+	help
+	  Ubuntu Base 14.04.6 (Trusty Tahr)
+
+config BR2_UBUNTU_BASE_ROOTFS_16_04_6
+	bool "16.04.6"
+	help
+	  Ubuntu Base 16.04.6 LTS (Xenial Xerus)
+
+config BR2_UBUNTU_BASE_ROOTFS_18_04_5
+	bool "18.04.5"
+	help
+	  Ubuntu Base 18.04.5 LTS (Bionic Beaver)
+
+config BR2_UBUNTU_BASE_ROOTFS_20_04_1
+	bool "20.04.1"
+	help
+	  Ubuntu Base 20.04.1 (Focal Fossa)
+
+config BR2_UBUNTU_BASE_ROOTFS_20_04_2
+	bool "20.04.2"
+	help
+	  Ubuntu Base 20.04.2 (Focal Fossa)
+
+config BR2_UBUNTU_BASE_ROOTFS_20_04_3
+	bool "20.04.3"
+	help
+	  Ubuntu Base 20.04.3 (Focal Fossa)
+
+config BR2_UBUNTU_BASE_ROOTFS_20_04_4
+	bool "20.04.4"
+	help
+	  Ubuntu Base 20.04.4 (Focal Fossa)
+
+config BR2_UBUNTU_BASE_ROOTFS_20_04_5
+	bool "20.04.5"
+	help
+	  Ubuntu Base 20.04.5 LTS (Focal Fossa)
+
+config BR2_UBUNTU_BASE_ROOTFS_22_04
+	bool "22.04"
+	help
+	  Ubuntu Base 22.04 (Jammy Jellyfish)
+
+config BR2_UBUNTU_BASE_ROOTFS_22_04_1
+	bool "22.04.1"
+	help
+	  Ubuntu Base 22.04.1 (Jammy Jellyfish)
+
+config BR2_UBUNTU_BASE_ROOTFS_22_04_2
+	bool "22.04.2"
+	help
+	  Ubuntu Base 22.04.2 (Jammy Jellyfish)
+
+config BR2_UBUNTU_BASE_ROOTFS_22_04_3
+	bool "22.04.3"
+	help
+	  Ubuntu Base 22.04.3 (Jammy Jellyfish)
+
+config BR2_UBUNTU_BASE_ROOTFS_22_04_4
+	bool "22.04.4"
+	help
+	  Ubuntu Base 22.04.4 LTS (Jammy Jellyfish)
+
+config BR2_UBUNTU_BASE_ROOTFS_24_04
+	bool "24.04"
+	help
+	  Ubuntu Base 24.04 (Noble Numbat)
+
+endchoice
+
+config BR2_UBUNTU_BASE_TARGET_RELEASE
+	string
+	default "14.04.5"	if BR2_UBUNTU_BASE_ROOTFS_14_04_5
+	default "14.04.6"	if BR2_UBUNTU_BASE_ROOTFS_14_04_6
+	default "16.04.6"	if BR2_UBUNTU_BASE_ROOTFS_16_04_6
+	default "18.04.5"	if BR2_UBUNTU_BASE_ROOTFS_18_04_5
+	default "20.04.1"	if BR2_UBUNTU_BASE_ROOTFS_20_04_1
+	default "20.04.2"	if BR2_UBUNTU_BASE_ROOTFS_20_04_2
+	default "20.04.3"	if BR2_UBUNTU_BASE_ROOTFS_20_04_3
+	default "20.04.4"	if BR2_UBUNTU_BASE_ROOTFS_20_04_4
+	default "20.04.5"	if BR2_UBUNTU_BASE_ROOTFS_20_04_5
+	default "22.04"	if BR2_UBUNTU_BASE_ROOTFS_22_04
+	default "22.04.1"	if BR2_UBUNTU_BASE_ROOTFS_22_04_1
+	default "22.04.2"	if BR2_UBUNTU_BASE_ROOTFS_22_04_2
+	default "22.04.3"	if BR2_UBUNTU_BASE_ROOTFS_22_04_3
+	default "22.04.4"	if BR2_UBUNTU_BASE_ROOTFS_22_04_4
+	default "24.04"	if BR2_UBUNTU_BASE_ROOTFS_24_04
+
 # Note on package/skeleton: usually, it is not safe to 'select' a
 # provider of a virtual package. But below we have an exception: each
 # init system may select one of the virtual skeleton-init-* packages.
@@ -85,33 +183,7 @@ config BR2_TARGET_GENERIC_PASSWD_METHOD
 # skeletons, which are providers of the virtual skeleton package.
 choice
 	prompt "Init system"
-	default BR2_INIT_BUSYBOX
-
-config BR2_INIT_BUSYBOX
-	bool "BusyBox"
-	select BR2_PACKAGE_BUSYBOX
-	select BR2_PACKAGE_INITSCRIPTS
-	select BR2_PACKAGE_SKELETON_INIT_SYSV if BR2_ROOTFS_SKELETON_DEFAULT
-
-config BR2_INIT_SYSV
-	bool "systemV"
-	depends on BR2_USE_MMU # sysvinit
-	select BR2_PACKAGE_BUSYBOX_SHOW_OTHERS # sysvinit
-	select BR2_PACKAGE_INITSCRIPTS
-	select BR2_PACKAGE_SYSVINIT
-	select BR2_PACKAGE_SKELETON_INIT_SYSV if BR2_ROOTFS_SKELETON_DEFAULT
-
-config BR2_INIT_OPENRC
-	bool "OpenRC"
-	depends on BR2_USE_MMU
-	depends on !BR2_STATIC_LIBS
-	depends on !BR2_TOOLCHAIN_USES_UCLIBC # openrc
-	select BR2_PACKAGE_OPENRC
-	select BR2_PACKAGE_SKELETON_INIT_OPENRC if BR2_ROOTFS_SKELETON_DEFAULT
-
-comment "openrc needs a glibc or musl toolchain w/ dynamic library"
-	depends on BR2_USE_MMU
-	depends on BR2_STATIC_LIBS && BR2_TOOLCHAIN_USES_UCLIBC
+	default BR2_INIT_SYSTEMD
 
 # In Buildroot, we decided not to support a split-usr when systemd is
 # used as an init system. This is a design decision, not a systemd
@@ -119,31 +191,13 @@ comment "openrc needs a glibc or musl toolchain w/ dynamic library"
 # with BR2_PACKAGE_SYSTEMD.
 config BR2_INIT_SYSTEMD
 	bool "systemd"
-	depends on BR2_PACKAGE_SYSTEMD_ARCH_SUPPORTS
-	depends on BR2_USE_MMU
-	depends on !BR2_STATIC_LIBS
-	depends on BR2_TOOLCHAIN_USES_GLIBC
-	depends on BR2_TOOLCHAIN_HAS_SSP
-	depends on BR2_TOOLCHAIN_HAS_THREADS
-	depends on BR2_TOOLCHAIN_HEADERS_AT_LEAST_4_14
-	depends on BR2_TOOLCHAIN_GCC_AT_LEAST_5
-	depends on BR2_HOST_GCC_AT_LEAST_5
 	select BR2_ROOTFS_MERGED_USR
-	select BR2_PACKAGE_SYSTEMD
 	select BR2_PACKAGE_SKELETON_INIT_SYSTEMD if BR2_ROOTFS_SKELETON_DEFAULT
 
 comment "systemd needs a glibc toolchain w/ SSP, headers >= 4.14, host and target gcc >= 5"
-	depends on BR2_PACKAGE_SYSTEMD_ARCH_SUPPORTS
-	depends on BR2_USE_MMU
-	depends on !BR2_TOOLCHAIN_USES_GLIBC || \
-		!BR2_TOOLCHAIN_HAS_SSP || \
-		!BR2_TOOLCHAIN_HEADERS_AT_LEAST_4_14 || \
-		!BR2_TOOLCHAIN_GCC_AT_LEAST_5 || \
-		!BR2_HOST_GCC_AT_LEAST_5
 
 comment "systemd highly recommends Linux >= 4.15"
 	depends on BR2_INIT_SYSTEMD
-	depends on !BR2_TOOLCHAIN_HEADERS_AT_LEAST_4_15
 
 config BR2_INIT_NONE
 	bool "None"
@@ -239,28 +293,6 @@ endif # BR2_INIT_SYSTEMD
 
 choice
 	prompt "/dev management" if !BR2_INIT_SYSTEMD
-	default BR2_ROOTFS_DEVICE_CREATION_DYNAMIC_DEVTMPFS
-
-config BR2_ROOTFS_DEVICE_CREATION_STATIC
-	bool "Static using device table"
-
-config BR2_ROOTFS_DEVICE_CREATION_DYNAMIC_DEVTMPFS
-	bool "Dynamic using devtmpfs only"
-
-config BR2_ROOTFS_DEVICE_CREATION_DYNAMIC_MDEV
-	bool "Dynamic using devtmpfs + mdev"
-	select BR2_PACKAGE_BUSYBOX
-
-config BR2_ROOTFS_DEVICE_CREATION_DYNAMIC_EUDEV
-	bool "Dynamic using devtmpfs + eudev"
-	depends on BR2_USE_WCHAR # eudev
-	depends on !BR2_STATIC_LIBS
-	depends on BR2_USE_MMU # eudev
-	select BR2_PACKAGE_EUDEV
-
-comment "eudev needs a toolchain w/ wchar, dynamic library"
-	depends on BR2_USE_MMU
-	depends on !BR2_USE_WCHAR || BR2_STATIC_LIBS
 
 endchoice
 
