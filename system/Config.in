@@ -1,102 +1,6 @@
 menu "System configuration"
 
-choice
-	prompt "Ubuntu Base rootfs"
-
-config BR2_UBUNTU_BASE_ROOTFS_14_04_5
-	bool "14.04.5"
-	help
-	  Ubuntu Base 14.04.5 (Trusty Tahr)
-
-config BR2_UBUNTU_BASE_ROOTFS_14_04_6
-	bool "14.04.6"
-	help
-	  Ubuntu Base 14.04.6 (Trusty Tahr)
-
-config BR2_UBUNTU_BASE_ROOTFS_16_04_6
-	bool "16.04.6"
-	help
-	  Ubuntu Base 16.04.6 LTS (Xenial Xerus)
-
-config BR2_UBUNTU_BASE_ROOTFS_18_04_5
-	bool "18.04.5"
-	help
-	  Ubuntu Base 18.04.5 LTS (Bionic Beaver)
-
-config BR2_UBUNTU_BASE_ROOTFS_20_04_1
-	bool "20.04.1"
-	help
-	  Ubuntu Base 20.04.1 (Focal Fossa)
-
-config BR2_UBUNTU_BASE_ROOTFS_20_04_2
-	bool "20.04.2"
-	help
-	  Ubuntu Base 20.04.2 (Focal Fossa)
-
-config BR2_UBUNTU_BASE_ROOTFS_20_04_3
-	bool "20.04.3"
-	help
-	  Ubuntu Base 20.04.3 (Focal Fossa)
-
-config BR2_UBUNTU_BASE_ROOTFS_20_04_4
-	bool "20.04.4"
-	help
-	  Ubuntu Base 20.04.4 (Focal Fossa)
-
-config BR2_UBUNTU_BASE_ROOTFS_20_04_5
-	bool "20.04.5"
-	help
-	  Ubuntu Base 20.04.5 LTS (Focal Fossa)
-
-config BR2_UBUNTU_BASE_ROOTFS_22_04
-	bool "22.04"
-	help
-	  Ubuntu Base 22.04 (Jammy Jellyfish)
-
-config BR2_UBUNTU_BASE_ROOTFS_22_04_1
-	bool "22.04.1"
-	help
-	  Ubuntu Base 22.04.1 (Jammy Jellyfish)
-
-config BR2_UBUNTU_BASE_ROOTFS_22_04_2
-	bool "22.04.2"
-	help
-	  Ubuntu Base 22.04.2 (Jammy Jellyfish)
-
-config BR2_UBUNTU_BASE_ROOTFS_22_04_3
-	bool "22.04.3"
-	help
-	  Ubuntu Base 22.04.3 (Jammy Jellyfish)
-
-config BR2_UBUNTU_BASE_ROOTFS_22_04_4
-	bool "22.04.4"
-	help
-	  Ubuntu Base 22.04.4 LTS (Jammy Jellyfish)
-
-config BR2_UBUNTU_BASE_ROOTFS_24_04
-	bool "24.04"
-	help
-	  Ubuntu Base 24.04 (Noble Numbat)
-
-endchoice
-
-config BR2_UBUNTU_BASE_TARGET_RELEASE
-	string
-	default "14.04.5"	if BR2_UBUNTU_BASE_ROOTFS_14_04_5
-	default "14.04.6"	if BR2_UBUNTU_BASE_ROOTFS_14_04_6
-	default "16.04.6"	if BR2_UBUNTU_BASE_ROOTFS_16_04_6
-	default "18.04.5"	if BR2_UBUNTU_BASE_ROOTFS_18_04_5
-	default "20.04.1"	if BR2_UBUNTU_BASE_ROOTFS_20_04_1
-	default "20.04.2"	if BR2_UBUNTU_BASE_ROOTFS_20_04_2
-	default "20.04.3"	if BR2_UBUNTU_BASE_ROOTFS_20_04_3
-	default "20.04.4"	if BR2_UBUNTU_BASE_ROOTFS_20_04_4
-	default "20.04.5"	if BR2_UBUNTU_BASE_ROOTFS_20_04_5
-	default "22.04"	if BR2_UBUNTU_BASE_ROOTFS_22_04
-	default "22.04.1"	if BR2_UBUNTU_BASE_ROOTFS_22_04_1
-	default "22.04.2"	if BR2_UBUNTU_BASE_ROOTFS_22_04_2
-	default "22.04.3"	if BR2_UBUNTU_BASE_ROOTFS_22_04_3
-	default "22.04.4"	if BR2_UBUNTU_BASE_ROOTFS_22_04_4
-	default "24.04"	if BR2_UBUNTU_BASE_ROOTFS_24_04
+comment "Skeleton"
 
 # Note on package/skeleton: usually, it is not safe to 'select' a
 # provider of a virtual package. But below we have an exception: each
@@ -132,6 +36,8 @@ config BR2_ROOTFS_SKELETON_CUSTOM_PATH
 endif
 
 if BR2_ROOTFS_SKELETON_DEFAULT
+
+comment "System administration"
 
 config BR2_TARGET_GENERIC_HOSTNAME
 	string "System hostname"
@@ -291,37 +197,8 @@ config BR2_PACKAGE_SYSTEMD_DEFAULT_TARGET
 
 endif # BR2_INIT_SYSTEMD
 
-choice
-	prompt "/dev management" if !BR2_INIT_SYSTEMD
-
-endchoice
-
 comment "/dev management using udev (from systemd)"
 	depends on BR2_INIT_SYSTEMD
-
-config BR2_ROOTFS_DEVICE_TABLE
-	string "Path to the permission tables"
-	default "system/device_table.txt"
-	help
-	  Specify a space-separated list of permission table locations,
-	  that will be passed to the makedevs utility to assign
-	  correct owners and permissions on various files in the
-	  target filesystem.
-
-	  See package/makedevs/README for details on the usage and
-	  syntax of these files.
-
-config BR2_ROOTFS_STATIC_DEVICE_TABLE
-	string "Path to the device tables"
-	default "system/device_table_dev.txt"
-	depends on BR2_ROOTFS_DEVICE_CREATION_STATIC
-	help
-	  Specify a space-separated list of device table locations,
-	  that will be passed to the makedevs utility to create all
-	  the special device files under /dev.
-
-	  See package/makedevs/README for details on the usage and
-	  syntax of these files.
 
 config BR2_ROOTFS_DEVICE_TABLE_SUPPORTS_EXTENDED_ATTRIBUTES
 	bool "support extended attributes in device tables"
@@ -386,41 +263,25 @@ config BR2_TARGET_GENERIC_ROOT_PASSWD
 
 choice
 	bool "/bin/sh"
-	default BR2_SYSTEM_BIN_SH_DASH if !BR2_PACKAGE_BUSYBOX
+	default BR2_SYSTEM_BIN_SH_BASH
 	help
 	  Select which shell will provide /bin/sh.
 
-# busybox has shells that work on noMMU
-config BR2_SYSTEM_BIN_SH_BUSYBOX
-	bool "busybox' default shell"
-	depends on BR2_PACKAGE_BUSYBOX
-
 config BR2_SYSTEM_BIN_SH_BASH
 	bool "bash"
-	depends on BR2_USE_MMU # bash
-	depends on BR2_PACKAGE_BUSYBOX_SHOW_OTHERS
 	select BR2_PACKAGE_BASH
 
 config BR2_SYSTEM_BIN_SH_DASH
 	bool "dash"
-	depends on BR2_USE_MMU # dash
-	depends on BR2_PACKAGE_BUSYBOX_SHOW_OTHERS
 	select BR2_PACKAGE_DASH
 
 config BR2_SYSTEM_BIN_SH_MKSH
 	bool "mksh"
-	depends on BR2_USE_MMU # mksh
-	depends on BR2_PACKAGE_BUSYBOX_SHOW_OTHERS
 	select BR2_PACKAGE_MKSH
 
 config BR2_SYSTEM_BIN_SH_ZSH
 	bool "zsh"
-	depends on BR2_USE_MMU # zsh
-	depends on BR2_PACKAGE_BUSYBOX_SHOW_OTHERS
 	select BR2_PACKAGE_ZSH
-
-comment "bash, dash, mksh, zsh need BR2_PACKAGE_BUSYBOX_SHOW_OTHERS"
-	depends on !BR2_PACKAGE_BUSYBOX_SHOW_OTHERS && BR2_PACKAGE_BUSYBOX
 
 config BR2_SYSTEM_BIN_SH_NONE
 	bool "none"
@@ -503,11 +364,11 @@ config BR2_TARGET_GENERIC_REMOUNT_ROOTFS_RW
 	  remain read-only.
 	  If unsure, say Y.
 
+comment "Networking"
+
 config BR2_SYSTEM_DHCP
 	string "Network interface to configure through DHCP"
 	default ""
-	depends on BR2_PACKAGE_BUSYBOX || BR2_PACKAGE_IFUPDOWN || \
-		BR2_PACKAGE_SYSTEMD_NETWORKD || BR2_PACKAGE_NETIFRC
 	help
 	  Enter here the name of the network interface (E.G. eth0) to
 	  automatically configure through DHCP at bootup.
@@ -519,8 +380,6 @@ config BR2_SYSTEM_DHCP
 	  configuration file.
 
 comment "automatic network configuration via DHCP needs ifupdown or busybox or networkd or netifrc"
-	depends on !(BR2_PACKAGE_BUSYBOX || BR2_PACKAGE_IFUPDOWN || \
-		BR2_PACKAGE_SYSTEMD_NETWORKD || BR2_PACKAGE_NETIFRC)
 
 endif # BR2_ROOTFS_SKELETON_DEFAULT
 
@@ -534,6 +393,8 @@ config BR2_SYSTEM_DEFAULT_PATH
 	  daemons.
 
 	  The default should work in most cases.
+
+comment "Locales"
 
 config BR2_ENABLE_LOCALE_PURGE
 	bool "Purge unwanted locales"
@@ -627,6 +488,8 @@ config BR2_TARGET_LOCALTIME
 	  Set to empty to not install a default time zone.
 
 endif # BR2_TARGET_TZ_INFO
+
+comment "Other"
 
 config BR2_ROOTFS_USERS_TABLES
 	string "Path to the users tables"

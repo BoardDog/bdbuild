@@ -125,6 +125,104 @@ config BR2_TAR_OPTIONS
 
 endmenu
 
+choice
+	prompt "Ubuntu Base rootfs"
+
+config BR2_UBUNTU_BASE_ROOTFS_14_04_5
+	bool "14.04.5"
+	help
+	  Ubuntu Base 14.04.5 (Trusty Tahr)
+
+config BR2_UBUNTU_BASE_ROOTFS_14_04_6
+	bool "14.04.6"
+	help
+	  Ubuntu Base 14.04.6 (Trusty Tahr)
+
+config BR2_UBUNTU_BASE_ROOTFS_16_04_6
+	bool "16.04.6"
+	help
+	  Ubuntu Base 16.04.6 LTS (Xenial Xerus)
+
+config BR2_UBUNTU_BASE_ROOTFS_18_04_5
+	bool "18.04.5"
+	help
+	  Ubuntu Base 18.04.5 LTS (Bionic Beaver)
+
+config BR2_UBUNTU_BASE_ROOTFS_20_04_1
+	bool "20.04.1"
+	help
+	  Ubuntu Base 20.04.1 (Focal Fossa)
+
+config BR2_UBUNTU_BASE_ROOTFS_20_04_2
+	bool "20.04.2"
+	help
+	  Ubuntu Base 20.04.2 (Focal Fossa)
+
+config BR2_UBUNTU_BASE_ROOTFS_20_04_3
+	bool "20.04.3"
+	help
+	  Ubuntu Base 20.04.3 (Focal Fossa)
+
+config BR2_UBUNTU_BASE_ROOTFS_20_04_4
+	bool "20.04.4"
+	help
+	  Ubuntu Base 20.04.4 (Focal Fossa)
+
+config BR2_UBUNTU_BASE_ROOTFS_20_04_5
+	bool "20.04.5"
+	help
+	  Ubuntu Base 20.04.5 LTS (Focal Fossa)
+
+config BR2_UBUNTU_BASE_ROOTFS_22_04
+	bool "22.04"
+	help
+	  Ubuntu Base 22.04 (Jammy Jellyfish)
+
+config BR2_UBUNTU_BASE_ROOTFS_22_04_1
+	bool "22.04.1"
+	help
+	  Ubuntu Base 22.04.1 (Jammy Jellyfish)
+
+config BR2_UBUNTU_BASE_ROOTFS_22_04_2
+	bool "22.04.2"
+	help
+	  Ubuntu Base 22.04.2 (Jammy Jellyfish)
+
+config BR2_UBUNTU_BASE_ROOTFS_22_04_3
+	bool "22.04.3"
+	help
+	  Ubuntu Base 22.04.3 (Jammy Jellyfish)
+
+config BR2_UBUNTU_BASE_ROOTFS_22_04_4
+	bool "22.04.4"
+	help
+	  Ubuntu Base 22.04.4 LTS (Jammy Jellyfish)
+
+config BR2_UBUNTU_BASE_ROOTFS_24_04
+	bool "24.04"
+	help
+	  Ubuntu Base 24.04 (Noble Numbat)
+
+endchoice
+
+config BR2_UBUNTU_BASE_TARGET_RELEASE
+	string
+	default "14.04.5"	if BR2_UBUNTU_BASE_ROOTFS_14_04_5
+	default "14.04.6"	if BR2_UBUNTU_BASE_ROOTFS_14_04_6
+	default "16.04.6"	if BR2_UBUNTU_BASE_ROOTFS_16_04_6
+	default "18.04.5"	if BR2_UBUNTU_BASE_ROOTFS_18_04_5
+	default "20.04.1"	if BR2_UBUNTU_BASE_ROOTFS_20_04_1
+	default "20.04.2"	if BR2_UBUNTU_BASE_ROOTFS_20_04_2
+	default "20.04.3"	if BR2_UBUNTU_BASE_ROOTFS_20_04_3
+	default "20.04.4"	if BR2_UBUNTU_BASE_ROOTFS_20_04_4
+	default "20.04.5"	if BR2_UBUNTU_BASE_ROOTFS_20_04_5
+	default "22.04"	if BR2_UBUNTU_BASE_ROOTFS_22_04
+	default "22.04.1"	if BR2_UBUNTU_BASE_ROOTFS_22_04_1
+	default "22.04.2"	if BR2_UBUNTU_BASE_ROOTFS_22_04_2
+	default "22.04.3"	if BR2_UBUNTU_BASE_ROOTFS_22_04_3
+	default "22.04.4"	if BR2_UBUNTU_BASE_ROOTFS_22_04_4
+	default "24.04"	if BR2_UBUNTU_BASE_ROOTFS_24_04
+
 config BR2_DEFCONFIG_FROM_ENV
 	string
 	option env="BR2_DEFCONFIG"
@@ -228,26 +326,6 @@ config BR2_GNU_MIRROR
 
 	     http://ftp.gnu.org/pub/gnu
 	     http://mirror.aarnet.edu.au/pub/gnu
-
-config BR2_LUAROCKS_MIRROR
-	string "LuaRocks mirror"
-	default "http://rocks.moonscript.org"
-	help
-	  LuaRocks repository.
-
-	  See http://luarocks.org
-
-config BR2_CPAN_MIRROR
-	string "CPAN mirror (Perl packages)"
-	default "https://cpan.metacpan.org"
-	help
-	  CPAN (Comprehensive Perl Archive Network) is a repository of
-	  Perl packages. It has multiple software mirrors scattered
-	  around the world. This option allows you to select a mirror.
-
-	  The list of mirrors is available at:
-	  http://mirrors.cpan.org/          (tabular)
-	  http://mirrors.cpan.org/map.html  (clickable world map)
 
 config BR2_UBUNTU_BASE_MIRROR
 	string "Ubuntu Base mirror (rootfs)"
