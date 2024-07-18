@@ -41,6 +41,8 @@ config BR2_NEEDS_HOST_UTF8_LOCALE
 
 source "arch/Config.in"
 
+source "toolchain/Config.in"
+
 menu "Build options"
 
 menu "Commands"

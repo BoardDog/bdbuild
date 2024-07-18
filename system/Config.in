@@ -1,6 +1,6 @@
 menu "System configuration"
 
-comment "Skeleton"
+comment "Skeleton Options"
 
 # Note on package/skeleton: usually, it is not safe to 'select' a
 # provider of a virtual package. But below we have an exception: each
@@ -37,7 +37,7 @@ endif
 
 if BR2_ROOTFS_SKELETON_DEFAULT
 
-comment "System administration"
+comment "System Administration Options"
 
 config BR2_TARGET_GENERIC_HOSTNAME
 	string "System hostname"
@@ -364,7 +364,7 @@ config BR2_TARGET_GENERIC_REMOUNT_ROOTFS_RW
 	  remain read-only.
 	  If unsure, say Y.
 
-comment "Networking"
+comment "Networking Options"
 
 config BR2_SYSTEM_DHCP
 	string "Network interface to configure through DHCP"
@@ -394,7 +394,7 @@ config BR2_SYSTEM_DEFAULT_PATH
 
 	  The default should work in most cases.
 
-comment "Locales"
+comment "Locales Options"
 
 config BR2_ENABLE_LOCALE_PURGE
 	bool "Purge unwanted locales"
@@ -489,7 +489,7 @@ config BR2_TARGET_LOCALTIME
 
 endif # BR2_TARGET_TZ_INFO
 
-comment "Other"
+comment "Other Options"
 
 config BR2_ROOTFS_USERS_TABLES
 	string "Path to the users tables"
