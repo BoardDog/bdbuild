@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Color
+# https://no-color.org/
+RED="\e[0;31m"
+GREEN="\e[0;32m"
+YELLOW="\e[0;33m"
+BLUE="\e[0;34m"
+WHITE="\e[0;37m"
+ENDCOLOR="\e[0m"
+NO_COLOR='\033[0m'
+
+ERROR="${RED}error${ENDCOLOR}"
+WARN="${YELLOW}warn${ENDCOLOR}"
+INFO="${GREEN}info${ENDCOLOR}"
+DEBUG="${BLUE}debug${ENDCOLOR}"
+
+true=1
+false=0

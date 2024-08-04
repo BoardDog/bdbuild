@@ -1,9 +1,0 @@
-menu "Target packages"
-
-	source "package/skeleton/Config.in"
-	source "package/skeleton-custom/Config.in"
-	source "package/skeleton-init-common/Config.in"
-	source "package/skeleton-init-none/Config.in"
-	source "package/skeleton-init-systemd/Config.in"
-
-endmenu

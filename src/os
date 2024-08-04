@@ -1,0 +1,30 @@
+#!/bin/bash
+
+dl_source_by_git_callback() {
+    local source_nm="$1"
+    local dst_path="${OBJ_DE_PATH}/${source_nm}/"
+    local options="${GIT_CLONE_OPTIONS}"
+    local _tmp_list=(${REPOSITORY_URL_LIST[$source_nm]})
+    local branch="${_tmp_list[1]}"
+    local url="${_tmp_list[0]}"
+    [ -d "${dst_path}" ] || {
+        mkdir -p "${dst_path}" && {
+            log_info "download $source_nm source code from git repository, url: '$url', branch: '$branch'."
+            dl_git_repo "${options}" "${url}" "${branch}" "${dst_path}"
+            return $?
+        }
+    }
+    return 0
+}
+
+build_os_a() {
+    local app_nm=$APP_OPTION
+    # download os base app source
+    log_info "download asrfos base app source."
+    local app_list="${OS_BASE_APP_LIST[*]}"
+    run_call_acc_app_listording_app_list "$app_list" dl_source_by_git_callback $app_nm 
+    # build desktop
+    # build_de_a $app_nm
+    # build rootfs
+    # build image
+}

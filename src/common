@@ -1,5 +1,4 @@
 #!/bin/bash
-# SPDX-License-Identifier: GPL-3.0-or-later
 
 # function <need_sudo>
 # #$1: other cmd
@@ -218,7 +217,7 @@ prepare_image_host_packages() {
         log_err "__PG_CS_TC_NM_LIST is not exist"
         return 1
     fi
-    
+
     for it in ${__PG_CS_TC_NM_LIST[@]}; do
         if [ "$it" == "" ]; then
             continue
@@ -260,7 +259,7 @@ prepare_image_host_packages() {
             [ ! -z $ret ] && need_extract=0
         }
         [ $need_extract -eq 1 ] && {
-            local __pg_install_ret=$(echo `__package_install`)
+            local __pg_install_ret=$(echo $(__package_install))
             log_info "extract to $__pg_install_ret"
             extract_package "$DOWNLOAD_PATH/$PKG_SOURCE_NAME" $__pg_install_ret
             [ $? == 0 ] && {
@@ -268,10 +267,10 @@ prepare_image_host_packages() {
                 if [ -f "${DL_STATUS_FILE_PATH}" ]; then
                     local ret=$(grep $PKG_SOURCE_NAME $DL_STATUS_FILE_PATH)
                     [ -z $ret ] && {
-                        echo "$PKG_SOURCE_NAME:ec_s=done">>$DL_STATUS_FILE_PATH
+                        echo "$PKG_SOURCE_NAME:ec_s=done" >>$DL_STATUS_FILE_PATH
                     }
                 else
-                    echo "$PKG_SOURCE_NAME:ec_s=done">$DL_STATUS_FILE_PATH
+                    echo "$PKG_SOURCE_NAME:ec_s=done" >$DL_STATUS_FILE_PATH
                 fi
             }
         }
@@ -333,4 +332,13 @@ prepare_packages() {
         return 2
     }
     return 0
+}
+
+# check_host_package
+# $1: package name
+check_host_package() {
+    [ -z $1 ] && return $false
+    local ret=$(apt-cache search $1 | grep "$1 -")
+    [ ! -z "$ret" ] && return $true
+    return $false
 }

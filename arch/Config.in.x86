@@ -1,8 +1,0 @@
-config BR2_ARCH
-	default "x86_64"	if BR2_x86_64
-
-config BR2_NORMALIZED_ARCH
-	default "x86_64"	if BR2_x86_64
-
-# vim: ft=kconfig
-# -*- mode:kconfig; -*-
