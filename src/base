@@ -30,6 +30,8 @@ ROOT_PATH=$(realpath "${BASH_SOURCE%/*}"/..)
 # Output packages Path
 # OUTPUT_PACKAGES_PATH="${OUTPUT_PATH}/packages"
 
+# BR config file path
+BR_CONFIG_FILE_PATH=$ROOT_PATH/.config
 # BR output Path
 BR_OUTPUT_PATH=$ROOT_PATH/output
 # BR build Path
@@ -37,11 +39,11 @@ BR_BUILD_PATH=$BR_OUTPUT_PATH/build
 # BR host Path
 BR_HOST_PATH=$BR_OUTPUT_PATH/host
 # BR images Path
-BR_HOST_PATH=$BR_OUTPUT_PATH/images
+BR_IMAGES_PATH=$BR_OUTPUT_PATH/images
 # BR staging Path
-BR_HOST_PATH=$BR_OUTPUT_PATH/staging
+BR_STAGING_PATH=$BR_OUTPUT_PATH/staging
 # BR target Path
-BR_HOST_PATH=$BR_OUTPUT_PATH/target
+BR_TARGET_PATH=$BR_OUTPUT_PATH/target
 # BR dl Path
 BR_DL_PATH=$BR_OUTPUT_PATH/dl
 
@@ -52,6 +54,14 @@ BR_DL_PATH=$BR_OUTPUT_PATH/dl
 # [ -d "${OUTPUT_PATH}" ] || mkdir -p "${OUTPUT_PATH}"
 # [ -d "${OUTPUT_PACKAGES_PATH}" ] || mkdir -p "${OUTPUT_PACKAGES_PATH}"
 # [ -d "${DBGSYM_DEBS_PATH}" ] || mkdir -p "${DBGSYM_DEBS_PATH}"
+
+[ -d "${BR_OUTPUT_PATH}" ] || mkdir -p "${BR_OUTPUT_PATH}"
+[ -d "${BR_BUILD_PATH}" ] || mkdir -p "${BR_BUILD_PATH}"
+[ -d "${BR_HOST_PATH}" ] || mkdir -p "${BR_HOST_PATH}"
+[ -d "${BR_IMAGES_PATH}" ] || mkdir -p "${BR_IMAGES_PATH}"
+[ -d "${BR_STAGING_PATH}" ] || mkdir -p "${BR_STAGING_PATH}"
+[ -d "${BR_TARGET_PATH}" ] || mkdir -p "${BR_TARGET_PATH}"
+[ -d "${BR_DL_PATH}" ] || mkdir -p "${BR_DL_PATH}"
 
 # OS_GIT_URL_CONFIG_PATH="${CONFIG_PATH}/${DE_OS}.conf"
 # [ -f "${OS_GIT_URL_CONFIG_PATH}" ] || {
@@ -79,5 +89,5 @@ PROJECT_SESSION_ID=$(echo -n $(base64 </dev/urandom | head -c20) | md5sum | awk 
 SESSION_PID_FILE=${BR_OUTPUT_PATH}/$PROJECT_SESSION_ID.pid
 
 # Log file(default)
-DEFAULT_LOG_FIELE=${BR_OUTPUT_PATH}/$PROJECT_SESSION_ID.log
-LOG_FIELE=$DEFAULT_LOG_FIELE
+DEFAULT_LOG_FILE=${BR_OUTPUT_PATH}/$PROJECT_SESSION_ID.log
+LOG_FILE=$DEFAULT_LOG_FILE

@@ -5,22 +5,16 @@ set -e -o pipefail
 
 # TODO: exit when the source command is detected
 
-source src/.var
-
 # function usage
 usage() {
     echo -n "\
 Usage: $BASH_SOURCE [OPTION]... [PARAM=VAL]...
 
-    -f/config       config file
     -h/help
     -c/command      specify a custom command
         clear/cr    clears temporary variables about the project in the current shell
         clean/cn    clean all spanned file
     -b/build        building the specified package
-    -j/jobs         specify the number of cpus to build when building the package
-    -s/sdk          sdk command
-	$(get_cmd_dsc $USER_CFG_FILE_OPTION)
 
 Description: Board Dog Build Tool
 License: GPL-3.0-or-later
@@ -29,21 +23,12 @@ License: GPL-3.0-or-later
 
 _parse_param() {
     local argcs=$@
-    export USER_CFG_FILE_OPTION=
-    export APP_OPTION=
-    export IMAGE_OPTION=
-    export MC_CPU_NUMBERS_OPTION=
-    while getopts ":hf:qc:b:j:s:" argcs; do
+    export B_OPTION=
+    export C_OPTION=
+    while getopts ":hc:b:" argcs; do
         case "${argcs}" in
-        f) USER_CFG_FILE_OPTION="${OPTARG}" ;;
-        b) APP_OPTION="${OPTARG}" ;;
-        s) IMAGE_OPTION="${OPTARG}" ;;
-        j) MC_CPU_NUMBERS_OPTION="${OPTARG}" ;;
-        c) C_CMD_OPTION="${OPTARG}" ;;
-        q)
-            # clears temporary variables and quit
-            exit 0
-            ;;
+        b) B_OPTION="${OPTARG}" ;;
+        c) C_OPTION="${OPTARG}" ;;
         h)
             usage
             exit 0
@@ -59,27 +44,27 @@ _parse_param() {
 # parsing shell parameters
 _parse_param $@
 
-source src/user_env $@ || {
-    echo -n "[error] user_env failed."
+source src/env $@ || {
+    echo -n "[error] env failed."
     exit -1
 }
 
-source src/base_config || {
-    echo -n "[error] base_config failed."
+source src/base || {
+    echo -n "[error] base failed."
     exit -1
 }
 
 source src/log
 source src/libs/packages
-source src/git
+source src/download
 source src/common
 source src/project
-source src/build_de
-source src/build_rootfs
-source src/build_image
-source src/build_os
-source src/build_app
-source src/sdk_handle
+source src/desktop
+source src/rootfs
+source src/image
+source src/os
+source src/app
+source src/sdk
 
 # function main
 _main() {

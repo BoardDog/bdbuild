@@ -2,7 +2,7 @@
 
 log_info() {
     [ -n "$*" ] &&
-        echo -e "[$INFO]: $1" | tee -a $LOG_FIELE
+        echo -e "[$INFO]: $1" | tee -a $LOG_FILE
 }
 
 info_() {
@@ -15,19 +15,19 @@ log_warn() {
     local _LINE=${BASH_LINENO[0]}
     local _FUNC=${FUNCNAME[1]}
     [ -n "$*" ] &&
-        echo -e "[$_FILE:$_FUNC:$_LINE][$WARN]: $1" | tee -a $LOG_FIELE
+        echo -e "[$_FILE:$_FUNC:$_LINE][$WARN]: $1" | tee -a $LOG_FILE
 }
 
 log_err() {
     local _FILE=${BASH_SOURCE[1]}
     local _LINE=${BASH_LINENO[0]}
     [ -n "$*" ] &&
-        echo -e "[$_FILE:$_LINE][$ERROR]: $1" | tee -a $LOG_FIELE
+        echo -e "[$_FILE:$_LINE][$ERROR]: $1" | tee -a $LOG_FILE
 }
 
 debug() {
     [ ! -z $_DEBUG ] && [ -n "$*" ] &&
-        echo -e "[$DEBUG]: $*" | tee -a $LOG_FIELE
+        echo -e "[$DEBUG]: $*" | tee -a $LOG_FILE
 }
 
 log_() {

@@ -12,7 +12,7 @@ need_sudo() {
 
 create_new_session() {
     local session_file_list=
-    entry_dir "${TEMP_PATH}/" && {
+    entry_dir "${BR_OUTPUT_PATH}/" && {
         session_file_list=$(find . -name "*.pid")
         rollback_dir
     }
