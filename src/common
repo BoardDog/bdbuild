@@ -4,7 +4,9 @@
 # #$1: other cmd
 need_sudo() {
     if [ "$SUPERUSER_PERMISSION" ]; then
-        log_warn "[${FUNCNAME[1]}] requires superuser permission!"
+        log_warn "[${FUNCNAME[1]}] This script requires root privileges, trying to use sudo, please enter your passowrd!"
+        sudo true || exit
+        log_info "sudo works..."
         return 0
     fi
     return 1
@@ -278,47 +280,54 @@ prepare_image_host_packages() {
     return 0
 }
 
+# function <prepare_os_host_packages>
+#   Preparing Host Dependency Packages
 prepare_os_host_packages() {
-    # OS prepare tools
-    local prepare_packages=
-    local host_env=$(sed -ne 's/^VERSION_CODENAME=//p' </etc/os-release)
-    case $host_env in
-    stretch | bullseye)
-        # debian host system environment
-        # prepare_packages+="devscripts build-essential"
-        # bug: sometimes an exception can occur, leading to a recognition error
-        prepare_packages+="devscripts build-essential equivs"
-        ;;
-    bionic | focal | jammy)
+    # Packages to install regardless of host type
+    local hostdeps="wget curl"
+    local build_host=$(sed -ne 's/^VERSION_CODENAME=//p' </etc/os-release)
+    log_info "Build host: $build_host target: $BD_TARGET_DISTRIB_RELEASE"
+    # Getting different packages based on host's distribution type
+    case $build_host in
+    bionic | focal | jammy | noble)
         # ubuntu host system environment
-        prepare_packages+="devscripts build-essential equivs"
+        hostdeps+=" python3"
         ;;
     *)
         log_err "unknown host environment."
         return 1
         ;;
     esac
-
-    local need_install_packages=()
-    local host_packages_list=$(dpkg-query -W -f '${db:Status-Abbrev}|${binary:Package}\n' '*' 2>/dev/null | grep '^ii' | awk -F '|' '{print $2}' | cut -d ':' -f 1)
-
-    for packet in $prepare_packages; do
-        if ! grep -q -x -e "$packet" <<<"$host_packages_list"; then
-            need_install_packages+=("$packet")
-        fi
+    # Collection of packages to install
+    local deps=()
+    local installed=$(dpkg-query -W -f '${db:Status-Abbrev}|${binary:Package}\n' '*' 2>/dev/null | grep '^ii' | awk -F '|' '{print $2}' | cut -d ':' -f 1)
+    for packet in $hostdeps; do
+        if ! grep -q -x -e "$packet" <<<"$installed"; then deps+=("$packet"); fi
     done
-
-    if [[ ${#need_install_packages[@]} -gt 0 ]]; then
-        need_sudo || {
-            return 1
-        }
+    if [[ ${#deps[@]} -gt 0 ]]; then
+        need_sudo || return 1
         log_info "obtain host dependency software packages."
         $SUPERUSER_PERMISSION apt-get update
-        $SUPERUSER_PERMISSION apt-get -y --no-install-recommends install "${need_install_packages[@]}"
+        # need sudo -E for silent mode pass env param
+        $SUPERUSER_PERMISSION apt-get -y --no-install-recommends install "${deps[@]}"
         $SUPERUSER_PERMISSION update-ccache-symlinks
-    else
-        log_info "the host dependency software package has been installed."
     fi
+    # enable arm binary format so that the cross-architecture chroot environment will work
+    mountpoint -q /proc/sys/fs/binfmt_misc/ ||
+        $SUPERUSER_PERMISSION mount binfmt_misc -t binfmt_misc /proc/sys/fs/binfmt_misc ||
+        [ -d /sys/module/binfmt_misc ] || {
+        log_info "Module 'binfmt_misc' not installed, try to install it!"
+        log_warn "Requires root privileges, please enter your password!"
+        $SUPERUSER_PERMISSION modprobe -q binfmt_misc || {
+            # FIXME 'binfmt_misc' should be installed on host PC manually
+            # https://github.com/khadas/fenix/issues/35#issuecomment-492326880
+            systemd-detect-virt -q -c &&
+                log_err "You are built in container: $(systemd-detect-virt), but the module 'binfmt_misc' is not installed, please exit the container to execute 'sudo modprobe binfmt_misc' on your host PC and try again!"
+            exit -1
+        }
+    }
+    test -e /proc/sys/fs/binfmt_misc/qemu-arm || $SUPERUSER_PERMISSION update-binfmts --enable qemu-arm
+    test -e /proc/sys/fs/binfmt_misc/qemu-aarch64 || $SUPERUSER_PERMISSION update-binfmts --enable qemu-aarch64
     return 0
 }
 
